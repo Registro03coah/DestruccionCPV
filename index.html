@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Extracción y Filtrado CPV - INE</title>
+    <title>Sistema de Configuración y Descarga CPV - INE</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS (XLSX) para leer archivos de Excel -->
+    <!-- SheetJS (XLSX) para Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Firebase SDK v10 (Modular) con tus credenciales -->
+    <!-- Firebase SDK v10 (Modular) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA6jvnsXZwF2anOJo3VadfNvn7Fl6Z5efY",
@@ -30,19 +30,25 @@
         window.firebasePush = push;
         window.firebaseSet = set;
         window.firebaseOnValue = onValue;
+        window.firebaseRemove = remove;
 
-        // Sincronizar automáticamente en tiempo real con Firebase
-        const dbRef = ref(db, 'Descarga_info');
-        onValue(dbRef, (snapshot) => {
+        // Sincronizar datos de entidad y sesión
+        onValue(ref(db, 'datosentidad'), (snapshot) => {
+            const data = snapshot.val();
+            if (data && typeof window.cargarDatosEntidadRemotos === 'function') {
+                window.cargarDatosEntidadRemotos(data);
+            }
+        });
+
+        // Sincronizar Descarga_info
+        onValue(ref(db, 'Descarga_info'), (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 const loadedData = Object.values(data);
-                if (loadedData.length > 0) {
-                    window.descargaInfoDB = loadedData;
-                    localStorage.setItem('descarga_info_db', JSON.stringify(loadedData));
-                    if (typeof actualizarVista === 'function') {
-                        actualizarVista();
-                    }
+                window.descargaInfoDB = loadedData;
+                localStorage.setItem('descarga_info_db', JSON.stringify(loadedData));
+                if (typeof actualizarVista === 'function') {
+                    actualizarVista();
                 }
             }
         });
@@ -67,122 +73,142 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex justify-between items-center">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Base de Datos Descarga_info</p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Módulo de Operación CPV</p>
         </div>
-        <div class="text-right">
-            <span class="bg-ineRed text-xs font-semibold px-3 py-1 rounded-full uppercase">Filtro Módulos: 050351, 050353, 050354</span>
+        <div class="flex items-center space-x-3">
+            <span id="badgeOperador" class="bg-ineRed text-xs font-semibold px-3 py-1 rounded-full uppercase hidden">Operador: <span id="lblOpName"></span></span>
+            <button onclick="liberarSesion()" id="btnLiberar" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 px-3 rounded transition hidden">Cerrar Sesión / Liberar</button>
+            <button onclick="borradoTotalAdmin()" class="bg-red-900 hover:bg-black text-rose-200 text-xs font-bold py-1.5 px-3 rounded transition border border-rose-700" title="Solo Administrador">🗑️ Borrado Total (Admin)</button>
         </div>
     </header>
 
     <!-- Contenido Principal -->
     <main class="flex-grow container mx-auto px-4 py-6 max-w-7xl space-y-6">
 
-        <!-- Panel de Entrada: Pegar (Ctrl + V) o Subir Archivo Excel -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Área de Pegado -->
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
+        <!-- PASO 1: CONFIGURACIÓN INICIAL (datosentidad) -->
+        <section id="configSection" class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+            <div class="border-b border-slate-200 pb-3 mb-4">
+                <h2 class="text-base font-bold text-slate-800 uppercase">Configuración Inicial de Operación</h2>
+                <p class="text-xs text-slate-500">Por favor, ingresa los datos generales antes de procesar los reportes de destrucción.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">1. Pegar Datos (Ctrl + V)</h2>
-                    <p class="text-xs text-slate-500 mb-3">Pega la información copiada del reporte general.</p>
-                    <textarea id="pasteArea" rows="4" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-3 text-xs font-mono focus:border-ineRed focus:outline-none bg-slate-50" placeholder="Haz clic aquí y presiona Ctrl + V..."></textarea>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">1. Entidad Federativa (Número):</label>
+                    <input type="number" id="cfgEntidad" placeholder="Ej. 5 (Coahuila)" class="w-full border border-slate-300 rounded p-2 text-xs focus:ring-2 focus:ring-ineRed focus:outline-none">
                 </div>
-                <div class="flex justify-between items-center mt-3">
-                    <span id="statusPaste" class="text-xs text-slate-500 italic">Listo para recibir datos</span>
-                    <button onclick="procesarDatosPegados()" class="bg-ineRed hover:bg-red-800 text-white font-bold py-2 px-4 rounded transition shadow text-xs">
-                        Procesar Pegado
-                    </button>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">2. Distrito Electoral (Número):</label>
+                    <input type="number" id="cfgDistrito" placeholder="Ej. 3" class="w-full border border-slate-300 rounded p-2 text-xs focus:ring-2 focus:ring-ineRed focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">3. ¿Cuántos módulos hay en su distrito?:</label>
+                    <input type="number" id="cfgNumModulos" min="1" max="10" placeholder="Ej. 3" onchange="generarCuadrosModulos()" class="w-full border border-slate-300 rounded p-2 text-xs focus:ring-2 focus:ring-ineRed focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">4. Nombre de quien realiza la operación:</label>
+                    <input type="text" id="cfgOperador" placeholder="Nombre completo" class="w-full border border-slate-300 rounded p-2 text-xs focus:ring-2 focus:ring-ineRed focus:outline-none">
                 </div>
             </div>
 
-            <!-- Área de Subir Archivo Excel -->
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">2. O Subir Archivo de Excel (.xlsx / .xls)</h2>
-                    <p class="text-xs text-slate-500 mb-3">Selecciona tu archivo Excel para extraer y filtrar automáticamente.</p>
-                    <input type="file" id="excelFile" accept=".xlsx, .xls" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer border border-slate-300 rounded-lg p-2">
-                </div>
-                <div class="flex justify-between items-center mt-3">
-                    <span id="statusExcel" class="text-xs text-slate-500 italic">Selecciona un archivo</span>
-                    <button onclick="procesarArchivoExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded transition shadow text-xs">
-                        Procesar Excel
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Resumen de Totales por Módulo en Línea (3 Colores Diferentes) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Módulo 050351 (Azul / Indigo) -->
-            <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
-                <div>
-                    <span class="text-xs font-bold text-indigo-600 uppercase">Módulo 050351</span>
-                    <h3 class="text-lg font-extrabold text-indigo-900" id="totalMod51">0 Credenciales</h3>
-                </div>
-                <div class="bg-indigo-200 text-indigo-800 p-3 rounded-lg font-bold text-xs" id="countMod51">0 Registros</div>
+            <!-- Contenedor dinámico para escribir los números de cada módulo -->
+            <div id="containerModulosDinamicos" class="mt-4 hidden bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Escribe el número de cada módulo:</label>
+                <div id="inputsModulosGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
             </div>
 
-            <!-- Módulo 050353 (Verde / Esmeralda) -->
-            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
-                <div>
-                    <span class="text-xs font-bold text-emerald-600 uppercase">Módulo 050353</span>
-                    <h3 class="text-lg font-extrabold text-emerald-900" id="totalMod53">0 Credenciales</h3>
-                </div>
-                <div class="bg-emerald-200 text-emerald-800 p-3 rounded-lg font-bold text-xs" id="countMod53">0 Registros</div>
+            <div class="mt-6 text-right">
+                <button onclick="guardarConfiguracionEntidad()" class="bg-ineRed hover:bg-red-800 text-white font-bold py-2.5 px-6 rounded shadow text-xs transition">
+                    Guardar Configuración e Iniciar Sesión
+                </button>
             </div>
+        </section>
 
-            <!-- Módulo 050354 (Rojo / Ambar - INE) -->
-            <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
-                <div>
-                    <span class="text-xs font-bold text-rose-600 uppercase">Módulo 050354</span>
-                    <h3 class="text-lg font-extrabold text-rose-900" id="totalMod54">0 Credenciales</h3>
-                </div>
-                <div class="bg-rose-200 text-rose-800 p-3 rounded-lg font-bold text-xs" id="countMod54">0 Registros</div>
-            </div>
-        </div>
+        <!-- PASO 2: ÁREA DE TRABAJO (Descarga_info - Oculto hasta configurar) -->
+        <div id="workSection" class="space-y-6 hidden">
 
-        <!-- Tabla de Datos Filtrados (Descarga_info) -->
-        <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
-            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info (Firebase)</h2>
-                    <p class="text-xs text-slate-500">Registros sincronizados en la nube y ordenados correctamente</p>
+            <!-- Panel de Entrada: Pegar (Ctrl + V) o Subir Archivo Excel -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Área de Pegado -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">Pegar Datos (Ctrl + V)</h2>
+                        <p class="text-xs text-slate-500 mb-3">Pega la información copiada del reporte general.</p>
+                        <textarea id="pasteArea" rows="4" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-3 text-xs font-mono focus:border-ineRed focus:outline-none bg-slate-50" placeholder="Haz clic aquí y presiona Ctrl + V..."></textarea>
+                    </div>
+                    <div class="flex justify-between items-center mt-3">
+                        <span id="statusPaste" class="text-xs text-slate-500 italic">Listo</span>
+                        <button onclick="procesarDatosPegados()" class="bg-ineRed hover:bg-red-800 text-white font-bold py-2 px-4 rounded transition shadow text-xs">
+                            Procesar Pegado
+                        </button>
+                    </div>
                 </div>
-                <div class="space-x-2">
-                    <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
-                        Exportar JSON
-                    </button>
+
+                <!-- Área de Subir Archivo Excel -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">Subir Archivo de Excel (.xlsx / .xls)</h2>
+                        <p class="text-xs text-slate-500 mb-3">Selecciona tu archivo Excel para extraer y filtrar automáticamente.</p>
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer border border-slate-300 rounded-lg p-2">
+                    </div>
+                    <div class="flex justify-between items-center mt-3">
+                        <span id="statusExcel" class="text-xs text-slate-500 italic">Selecciona un archivo</span>
+                        <button onclick="procesarArchivoExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded transition shadow text-xs">
+                            Procesar Excel
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Tabla con scroll horizontal -->
-            <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-[450px]">
-                <table class="w-full text-xs text-left border-collapse whitespace-nowrap">
-                    <thead class="bg-slate-100 text-slate-700 sticky top-0 border-b z-10">
-                        <tr>
-                            <th class="p-2 border-r">Entidad</th>
-                            <th class="p-2 border-r">Distrito</th>
-                            <th class="p-2 border-r bg-red-50 text-ineRed font-bold">Módulo</th>
-                            <th class="p-2 border-r">Entidad (CPV)</th>
-                            <th class="p-2 border-r">Sección</th>
-                            <th class="p-2 border-r">Mal Impresas</th>
-                            <th class="p-2 border-r">Duplicadas</th>
-                            <th class="p-2 border-r">Sobrantes</th>
-                            <th class="p-2 border-r">Anexas Sol. Individual</th>
-                            <th class="p-2 border-r">Anexas Sol. Reimpresión</th>
-                            <th class="p-2 border-r">Devueltas Entrega</th>
-                            <th class="p-2 border-r">Retiradas MAC</th>
-                            <th class="p-2 border-r">Devueltas Terceros</th>
-                            <th class="p-2 border-r">Capturadas</th>
-                            <th class="p-2 font-bold bg-slate-200">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody id="descargaInfoTableBody" class="divide-y divide-slate-200">
-                        <tr>
-                            <td colspan="15" class="p-6 text-center text-slate-400 italic">Cargando datos desde Firebase...</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Resumen de Totales por Módulo en Línea (3 Colores Diferentes / Dinámicos) -->
+            <div id="totalesModulosGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Se llena dinámicamente según los módulos configurados -->
             </div>
+
+            <!-- Tabla de Datos Filtrados (Descarga_info) -->
+            <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info</h2>
+                        <p class="text-xs text-slate-500">Registros filtrados según los módulos de tu distrito</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
+                            Exportar JSON
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-[450px]">
+                    <table class="w-full text-xs text-left border-collapse whitespace-nowrap">
+                        <thead class="bg-slate-100 text-slate-700 sticky top-0 border-b z-10">
+                            <tr>
+                                <th class="p-2 border-r">Entidad</th>
+                                <th class="p-2 border-r">Distrito</th>
+                                <th class="p-2 border-r bg-red-50 text-ineRed font-bold">Módulo</th>
+                                <th class="p-2 border-r">Entidad (CPV)</th>
+                                <th class="p-2 border-r">Sección</th>
+                                <th class="p-2 border-r">Mal Impresas</th>
+                                <th class="p-2 border-r">Duplicadas</th>
+                                <th class="p-2 border-r">Sobrantes</th>
+                                <th class="p-2 border-r">Anexas Sol. Individual</th>
+                                <th class="p-2 border-r">Anexas Sol. Reimpresión</th>
+                                <th class="p-2 border-r">Devueltas Entrega</th>
+                                <th class="p-2 border-r">Retiradas MAC</th>
+                                <th class="p-2 border-r">Devueltas Terceros</th>
+                                <th class="p-2 border-r">Capturadas</th>
+                                <th class="p-2 font-bold bg-slate-200">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="descargaInfoTableBody" class="divide-y divide-slate-200">
+                            <tr>
+                                <td colspan="15" class="p-6 text-center text-slate-400 italic">No hay datos procesados todavía.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
 
     </main>
@@ -192,11 +218,156 @@
         Sistema de Control y Filtrado CPV &copy; 2026 — Registro Federal de Electores
     </footer>
 
-    <!-- Lógica de Procesamiento -->
+    <!-- Lógica JavaScript Principal -->
     <script>
         window.descargaInfoDB = JSON.parse(localStorage.getItem('descarga_info_db')) || [];
-        
-        const MODULOS_OBJETIVO = ['50351', '050351', '50353', '050353', '050354', '050354'];
+        window.modulosPermitidos = [];
+        let sesionActualConfig = null;
+
+        const PALETA_COLORES = [
+            { bg: 'bg-indigo-50', border: 'border-indigo-200', textTitle: 'text-indigo-600', textVal: 'text-indigo-900', badgeBg: 'bg-indigo-200', badgeText: 'text-indigo-800' },
+            { bg: 'bg-emerald-50', border: 'border-emerald-200', textTitle: 'text-emerald-600', textVal: 'text-emerald-900', badgeBg: 'bg-emerald-200', badgeText: 'text-emerald-800' },
+            { bg: 'bg-rose-50', border: 'border-rose-200', textTitle: 'text-rose-600', textVal: 'text-rose-900', badgeBg: 'bg-rose-200', badgeText: 'text-rose-800' },
+            { bg: 'bg-amber-50', border: 'border-amber-200', textTitle: 'text-amber-600', textVal: 'text-amber-900', badgeBg: 'bg-amber-200', badgeText: 'text-amber-800' },
+            { bg: 'bg-cyan-50', border: 'border-cyan-200', textTitle: 'text-cyan-600', textVal: 'text-cyan-900', badgeBg: 'bg-cyan-200', badgeText: 'text-cyan-800' }
+        ];
+
+        function generarCuadrosModulos() {
+            const count = parseInt(document.getElementById('cfgNumModulos').value) || 0;
+            const container = document.getElementById('containerModulosDinamicos');
+            const grid = document.getElementById('inputsModulosGrid');
+            grid.innerHTML = '';
+
+            if (count > 0) {
+                container.classList.remove('hidden');
+                for (let i = 1; i <= count; i++) {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Módulo ${i}:</label>
+                        <input type="text" id="modInput_${i}" placeholder="Ej. 050351" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono font-semibold text-center focus:ring-1 focus:ring-ineRed focus:outline-none">
+                    `;
+                    grid.appendChild(div);
+                }
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function guardarConfiguracionEntidad() {
+            const entidad = document.getElementById('cfgEntidad').value.trim();
+            const distrito = document.getElementById('cfgDistrito').value.trim();
+            const numMods = parseInt(document.getElementById('cfgNumModulos').value) || 0;
+            const operador = document.getElementById('cfgOperador').value.trim();
+
+            if (!entidad || !distrito || numMods <= 0 || !operador) {
+                alert('Por favor, completa todos los campos de configuración inicial.');
+                return;
+            }
+
+            let modulos = [];
+            for (let i = 1; i <= numMods; i++) {
+                const val = document.getElementById(`modInput_${i}`).value.trim();
+                if (val) {
+                    modulos.push(val);
+                }
+            }
+
+            if (modulos.length !== numMods) {
+                alert('Asegúrate de escribir el número de cada uno de los módulos configurados.');
+                return;
+            }
+
+            const configData = {
+                entidad,
+                distrito,
+                operador,
+                modulos,
+                timestamp: Date.now()
+            };
+
+            // Guardar en la base de datos datosentidad en Firebase
+            if (window.db && window.firebaseRef && window.firebaseSet) {
+                window.firebaseSet(window.firebaseRef(window.db, 'datosentidad'), configData)
+                    .then(() => {
+                        aplicarConfiguracionLocal(configData);
+                    })
+                    .catch(err => {
+                        alert('Error al guardar en Firebase: ' + err.message);
+                    });
+            } else {
+                aplicarConfiguracionLocal(configData);
+            }
+        }
+
+        function aplicarConfiguracionLocal(data) {
+            sesionActualConfig = data;
+            window.modulosPermitidos = data.modulos.map(m => String(m).trim());
+
+            // Mostrar operador en el header
+            document.getElementById('lblOpName').innerText = data.operador;
+            document.getElementById('badgeOperador').classList.remove('hidden');
+            document.getElementById('btnLiberar').classList.remove('hidden');
+
+            // Cambiar vistas de secciones
+            document.getElementById('configSection').classList.add('hidden');
+            document.getElementById('workSection').classList.remove('hidden');
+
+            renderizarTarjetasTotalesDinamicas();
+            actualizarVista();
+        }
+
+        window.cargarDatosEntidadRemotos = function(data) {
+            if (data && data.operador) {
+                sesionActualConfig = data;
+                window.modulosPermitidos = data.modulos.map(m => String(m).trim());
+            }
+        }
+
+        function liberarSesion() {
+            if (confirm('¿Deseas cerrar sesión y liberar el panel de configuración?')) {
+                if (window.db && window.firebaseRef && window.firebaseRemove) {
+                    window.firebaseRemove(window.firebaseRef(window.db, 'datosentidad'));
+                }
+                localStorage.removeItem('datosentidad');
+                location.reload();
+            }
+        }
+
+        function borradoTotalAdmin() {
+            const pass = prompt('Contraseña de Administrador requerida para Borrado Total:');
+            if (pass === 'admin2026' || pass === 'INE2026') { // Contraseña protegida
+                if (window.db && window.firebaseRef && window.firebaseRemove) {
+                    window.firebaseRemove(window.firebaseRef(window.db, 'datosentidad'));
+                    window.firebaseRemove(window.firebaseRef(window.db, 'Descarga_info'));
+                }
+                localStorage.clear();
+                alert('¡Borrado total exitoso! Las bases de datos se han reiniciado a cero.');
+                location.reload();
+            } else if (pass !== null) {
+                alert('Contraseña incorrecta.');
+            }
+        }
+
+        function renderizarTarjetasTotalesDinamicas() {
+            const grid = document.getElementById('totalesModulosGrid');
+            grid.innerHTML = '';
+
+            if (!window.modulosPermitidos) return;
+
+            window.modulosPermitidos.forEach((mod, idx) => {
+                const color = PALETA_COLORES[idx % PALETA_COLORES.length];
+                const div = document.createElement('div');
+                div.className = `${color.bg} border ${color.border} rounded-xl p-4 shadow-sm flex justify-between items-center`;
+                div.innerHTML = `
+                    <div>
+                        <span class="text-xs font-bold ${color.textTitle} uppercase">Módulo ${mod}</span>
+                        <h3 class="text-lg font-extrabold ${color.textVal}" id="totalMod_${mod}">0 Credenciales</h3>
+                    </div>
+                    <div class="${color.badgeBg} ${color.badgeText} p-3 rounded-lg font-bold text-xs" id="countMod_${mod}">0 Registros</div>
+                `;
+                grid.appendChild(div);
+            });
+        }
 
         function procesarDatosCrudos(lineas) {
             let nuevosRegistros = [];
@@ -209,7 +380,8 @@
 
                     columnas.forEach(col => {
                         const colClean = col.replace(/^0+/, '');
-                        if (MODULOS_OBJETIVO.includes(col) || MODULOS_OBJETIVO.includes(colClean)) {
+                        const modValida = window.modulosPermitidos.some(m => m === col || m.replace(/^0+/, '') === colClean);
+                        if (modValida) {
                             moduloEncontrado = col.padStart(5, '0');
                             esModuloValido = true;
                         }
@@ -217,8 +389,8 @@
 
                     if (esModuloValido) {
                         const registro = {
-                            entidadTramite: columnas[0] || 'Coahuila',
-                            distrito: columnas[1] || '3',
+                            entidadTramite: sesionActualConfig ? sesionActualConfig.entidad : (columnas[0] || 'Coahuila'),
+                            distrito: sesionActualConfig ? sesionActualConfig.distrito : (columnas[1] || '3'),
                             modulo: moduloEncontrado,
                             entidadCpv: columnas[3] || columnas[2] || 'Coahuila',
                             seccion: columnas[4] || columnas[3] || '0',
@@ -253,7 +425,7 @@
             const nuevos = procesarDatosCrudos(lineas);
 
             if (nuevos.length === 0) {
-                alert('No se encontraron registros para los módulos 050351, 050353 o 050354.');
+                alert('No se encontraron registros para los módulos configurados en tu distrito.');
                 return;
             }
 
@@ -311,27 +483,26 @@
         }
 
         function calcularTotalesModulos() {
-            let t51 = 0, c51 = 0;
-            let t53 = 0, c53 = 0;
-            let t54 = 0, c54 = 0;
+            if (!window.modulosPermitidos) return;
 
-            window.descargaInfoDB.forEach(reg => {
-                const mod = String(reg.modulo).replace(/^0+/, '');
-                const tot = Number(reg.total) || 0;
+            window.modulosPermitidos.forEach(mod => {
+                let totalCred = 0;
+                let countReg = 0;
 
-                if (mod === '50351') { t51 += tot; c51++; }
-                else if (mod === '50353') { t53 += tot; c53++; }
-                else if (mod === '50354') { t54 += tot; c54++; }
+                window.descargaInfoDB.forEach(reg => {
+                    const mClean = String(reg.modulo).replace(/^0+/, '');
+                    const targetClean = String(mod).replace(/^0+/, '');
+                    if (mClean === targetClean) {
+                        totalCred += Number(reg.total) || 0;
+                        countReg++;
+                    }
+                });
+
+                const elTot = document.getElementById(`totalMod_${mod}`);
+                const elCnt = document.getElementById(`countMod_${mod}`);
+                if (elTot) elTot.innerText = `${totalCred.toLocaleString()} Credenciales`;
+                if (elCnt) elCnt.innerText = `${countReg} Registros`;
             });
-
-            document.getElementById('totalMod51').innerText = `${t51.toLocaleString()} Credenciales`;
-            document.getElementById('countMod51').innerText = `${c51} Registros`;
-
-            document.getElementById('totalMod53').innerText = `${t53.toLocaleString()} Credenciales`;
-            document.getElementById('countMod53').innerText = `${c53} Registros`;
-
-            document.getElementById('totalMod54').innerText = `${t54.toLocaleString()} Credenciales`;
-            document.getElementById('countMod54').innerText = `${c54} Registros`;
         }
 
         function renderizarTablaDescargaInfo() {
