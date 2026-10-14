@@ -107,7 +107,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.4)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.5)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -665,8 +665,7 @@
             });
         }
 
-        // VENTANA FLOTANTE: TABLA INTERNA DEPURADA
-        // Orden estrictamente solicitado: Módulo -> Entidad CPV (con letra) -> Sección (menor a mayor)
+        // TABLA DEPURADA INTERNA: Orden estricto Módulo -> Entidad CPV (con letra) -> Sección
         function abrirModalTablaDepurada() {
             const tbody = document.getElementById('tablaDepuradaBody');
             if (!tbody) return;
@@ -704,7 +703,7 @@
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
         }
 
-        // GENERACIÓN DE ETIQUETAS POR LOTE (Múltiples etiquetas organizadas y ordenadas)
+        // GENERACIÓN DE ETIQUETAS POR LOTE (Múltiples etiquetas, bloques de 100, partición exacta)
         function generarEtiquetasPorLote() {
             const container = document.getElementById('contenedorEtiquetasLote');
             if (!container) return;
@@ -718,7 +717,7 @@
             const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
             const distritoLocal = sesionActualConfig.distrito;
 
-            // Ordenamiento estricto por Módulo -> Entidad CPV (letra) -> Sección
+            // Ordenamiento estricto por Módulo -> Entidad CPV (con letra) -> Sección
             let dataGlobalOrdenada = [...window.descargaInfoDB].sort((a, b) => {
                 if (a.modulo !== b.modulo) return a.modulo.localeCompare(b.modulo);
                 const entA = obtenerNombreEntidad(a.entidadCpv);
@@ -743,7 +742,7 @@
                     }
                 });
 
-                // Lógica de bloques de 100 con partición de secciones
+                // Algoritmo de acumulación y partición de bloques de 100
                 let paquetesSecciones = [];
                 let currentBatchSections = [];
                 let currentBatchTotal = 0;
@@ -755,7 +754,7 @@
                     if (credsRestantes <= 0) return;
 
                     if (currentBatchSections.length === 0) {
-                        currentBatchSections.push({ seccion: secNum, count: 0 });
+                        currentBatchSections.push(secNum);
                     }
 
                     while (credsRestantes > 0) {
@@ -764,10 +763,15 @@
                         if (credsRestantes >= spaceLeft) {
                             credsRestantes -= spaceLeft;
                             currentBatchTotal += spaceLeft;
-                            currentBatchSections[currentBatchSections.length - 1].count += spaceLeft;
+                            
+                            // Asegurar que el último elemento sea secNum
+                            if (!currentBatchSections.includes(secNum)) {
+                                currentBatchSections.push(secNum);
+                            }
 
-                            const minS = currentBatchSections[0].seccion;
-                            const maxS = currentBatchSections[currentBatchSections.length - 1].seccion;
+                            const minS = currentBatchSections[0];
+                            const maxS = currentBatchSections[currentBatchSections.length - 1];
+
                             paquetesSecciones.push({
                                 minSec: minS,
                                 maxSec: maxS,
@@ -777,19 +781,21 @@
                             currentBatchTotal = 0;
                             currentBatchSections = [];
                             if (credsRestantes > 0) {
-                                currentBatchSections.push({ seccion: secNum, count: 0 });
+                                currentBatchSections.push(secNum);
                             }
                         } else {
                             currentBatchTotal += credsRestantes;
-                            currentBatchSections[currentBatchSections.length - 1].count += credsRestantes;
+                            if (!currentBatchSections.includes(secNum)) {
+                                currentBatchSections.push(secNum);
+                            }
                             credsRestantes = 0;
                         }
                     }
                 });
 
                 if (currentBatchTotal > 0) {
-                    const minS = currentBatchSections[0].seccion;
-                    const maxS = currentBatchSections[currentBatchSections.length - 1].seccion;
+                    const minS = currentBatchSections[0];
+                    const maxS = currentBatchSections[currentBatchSections.length - 1];
                     paquetesSecciones.push({
                         minSec: minS,
                         maxSec: maxS,
