@@ -38,7 +38,7 @@
         <!-- Área de Pegado (Ctrl + V) -->
         <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
             <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">1. Pegar Datos (Ctrl + V) del Reporte General</h2>
-            <p class="text-xs text-slate-500 mb-3">Pega la información completa del reporte. El sistema filtrará automáticamente solo los módulos <strong>050351, 050353 y 050354</strong>.</p>
+            <p class="text-xs text-slate-500 mb-3">Pega la información completa del reporte. El sistema ignorará celdas combinadas vacías y filtrará solo los módulos <strong>050351, 050353 y 050354</strong>.</p>
             <textarea id="pasteArea" rows="5" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-3 text-xs font-mono focus:border-ineRed focus:outline-none bg-slate-50" placeholder="Haz clic aquí y presiona Ctrl + V para pegar la información..."></textarea>
             <div class="flex justify-between items-center mt-3">
                 <span id="statusPaste" class="text-xs text-slate-500 italic">Esperando datos para procesar...</span>
@@ -56,7 +56,7 @@
             <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
                 <div>
                     <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info</h2>
-                    <p class="text-xs text-slate-500">Registros filtrados según los módulos requeridos (050351, 050353, 050354)</p>
+                    <p class="text-xs text-slate-500">Registros filtrados y ajustados por columnas reales</p>
                 </div>
                 <div class="space-x-2">
                     <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
@@ -65,7 +65,7 @@
                 </div>
             </div>
 
-            <!-- Tabla con scroll horizontal debido a la cantidad de columnas -->
+            <!-- Tabla con scroll horizontal -->
             <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-96">
                 <table class="w-full text-xs text-left border-collapse whitespace-nowrap">
                     <thead class="bg-slate-100 text-slate-700 sticky top-0 border-b">
@@ -103,12 +103,12 @@
         Sistema de Control y Filtrado CPV &copy; 2026 — Registro Federal de Electores
     </footer>
 
-    <!-- Lógica JavaScript de Extracción y Filtrado -->
+    <!-- Lógica JavaScript Mejorada -->
     <script>
         let descargaInfoDB = JSON.parse(localStorage.getItem('descarga_info_db')) || [];
         renderizarTablaDescargaInfo();
 
-        const MODULOS_PERMITIDOS = ['050351', '50351', '050353', '50353', '050354', '50354'];
+        const MODULOS_OBJETIVO = ['50351', '050351', '50353', '050353', '50354', '050354'];
 
         function procesarYFiltrarDatos() {
             const pastedText = document.getElementById('pasteArea').value.trim();
@@ -121,92 +121,65 @@
             let nuevosRegistros = [];
 
             lineas.forEach(linea => {
-                // Separar por tabulaciones (copiar y pegar de Excel/XML)
-                const columnas = linea.split('\t').map(c => c.trim()).filter(Boolean);
+                // Separar por tabulaciones y ELIMINAR celdas vacías o espacios en blanco causados por columnas combinadas
+                const columnas = linea.split('\t').map(c => c.trim()).filter(c => c !== "");
 
-                if (columnas.length >= 5) {
-                    // Buscamos cuál columna coincide con el formato de módulo o contiene los números objetivo
-                    // Intentamos identificar el módulo en las columnas disponibles
+                if (columnas.length >= 3) {
+                    // Buscar si alguno de los valores de la fila coincide con los módulos objetivo
                     let moduloEncontrado = '';
-                    let moduloIndex = -1;
+                    let esModuloValido = false;
 
-                    columnas.forEach((col, idx) => {
-                        const colClean = col.replace(/^0+/, ''); // Limpiar ceros a la izquierda para comparar
-                        if (MODULOS_PERMITIDOS.includes(col) || MODULOS_PERMITIDOS.includes(colClean) || col === '50351' || col === '50353' || col === '50354') {
+                    columnas.forEach(col => {
+                        const colClean = col.replace(/^0+/, '');
+                        if (MODULOS_OBJETIVO.includes(col) || MODULOS_OBJETIVO.includes(colClean)) {
                             moduloEncontrado = col;
-                            moduloIndex = idx;
+                            esModuloValido = true;
                         }
                     });
 
-                    // Si encontramos un módulo permitido, extraemos los campos según los encabezados solicitados
-                    if (moduloIndex !== -1 || MODULOS_PERMITIDOS.some(m => linea.includes(m))) {
-                        // Mapeo flexible de columnas basado en tu estructura
+                    if (esModuloValido) {
+                        // Mapeo inteligente secuencial ignorando huecos vacíos
+                        // Como filtramos los vacíos, los datos útiles quedan alineados en orden consecutivo:
+                        // [EntidadTr, ?, ?, Distrito, Módulo, EntidadCpv, Sección, MalImpr, Duplicadas, Sobrantes, AnexasInd, AnexasReimp, DevEntrega, RetiradasMac, DevTerceros, Capturadas, Total]
+                        
+                        // Buscamos los índices numéricos o extraemos por orden lógico
+                        const nums = columnas.filter(c => !isNaN(c) && c !== "");
+                        const textVals = columnas.filter(c => isNaN(c) || c === "");
+
                         const registro = {
                             entidadTramite: columnas[0] || 'Coahuila',
-                            distrito: columnas[4] || columnas[1] || '3',
-                            modulo: moduloEncontrado || columnas[5] || '50354',
-                            entidadCpv: columnas[6] || columnas[2] || 'Coahuila',
-                            seccion: columnas[8] || columnas[3] || '0',
-                            malImpresas: Number(columnas[11] || 0),
-                            duplicadas: Number(columnas[12] || 0),
-                            sobrantes: Number(columnas[15] || 0),
-                            anexasIndividual: Number(columnas[17] || 0),
-                            anexasReimpresion: Number(columnas[19] || 0),
-                            devueltasEntrega: Number(columnas[22] || 0),
-                            retiradasMac: Number(columnas[25] || 0),
-                            devueltasTerceros: Number(columnas[26] || 0),
-                            capturadas: Number(columnas[29] || 0),
-                            total: Number(columnas[33] || 0)
+                            distrito: columnas[1] || '3',
+                            modulo: moduloEncontrado,
+                            entidadCpv: columnas[2] || 'Coahuila',
+                            seccion: columnas[3] || '0',
+                            malImpresas: Number(columnas[4] || 0),
+                            duplicadas: Number(columnas[5] || 0),
+                            sobrantes: Number(columnas[6] || 0),
+                            anexasIndividual: Number(columnas[7] || 0),
+                            anexasReimpresion: Number(columnas[8] || 0),
+                            devueltasEntrega: Number(columnas[9] || 0),
+                            retiradasMac: Number(columnas[10] || 0),
+                            devueltasTerceros: Number(columnas[11] || 0),
+                            capturadas: Number(columnas[12] || 0),
+                            total: Number(columnas[columnas.length - 1] || 0)
                         };
 
-                        // Validar estrictamente que el módulo sea uno de los 3 permitidos (normalizando ceros)
-                        const modClean = String(registro.modulo).replace(/^0+/, '');
-                        if (modClean === '50351' || modClean === '50353' || modClean === '50354') {
-                            nuevosRegistros.push(registro);
-                        }
+                        nuevosRegistros.push(registro);
                     }
                 }
             });
 
-            // Si por formato rápido no detectó columnas por tabulación exacta, hacemos un análisis inteligente por regex de filas
             if (nuevosRegistros.length === 0) {
-                lineas.forEach(linea => {
-                    if (linea.includes('050351') || linea.includes('50351') || linea.includes('050353') || linea.includes('50353') || linea.includes('050354') || linea.includes('50354')) {
-                        const nums = linea.match(/-?\d+/g) || [];
-                        if (nums.length >= 5) {
-                            nuevosRegistros.push({
-                                entidadTramite: 'Coahuila',
-                                distrito: nums[1] || '3',
-                                modulo: nums.find(n => MODULOS_PERMITIDOS.includes(n)) || '50354',
-                                entidadCpv: 'Coahuila',
-                                seccion: nums[2] || '1',
-                                malImpresas: 0,
-                                duplicadas: 0,
-                                sobrantes: 0,
-                                anexasIndividual: 0,
-                                anexasReimpresion: 0,
-                                devueltasEntrega: Number(nums[nums.length - 2] || 0),
-                                retiradasMac: 0,
-                                devueltasTerceros: 0,
-                                capturadas: 0,
-                                total: Number(nums[nums.length - 1] || 0)
-                            });
-                        }
-                    }
-                });
-            }
-
-            if (nuevosRegistros.length === 0) {
-                alert('No se encontraron registros correspondientes a los módulos 050351, 050353 o 050354 en el texto pegado. Verifica que las columnas coincidan.');
+                alert('No se encontraron registros para los módulos 050351, 050353 o 050354. Asegúrate de copiar las filas completas desde Excel.');
                 return;
             }
 
-            // Agregar a la base de datos local Descarga_info
+            // Guardar en Descarga_info
             descargaInfoDB = [...nuevosRegistros, ...descargaInfoDB];
             localStorage.setItem('descarga_info_db', JSON.stringify(descargaInfoDB));
             renderizarTablaDescargaInfo();
 
-            document.getElementById('statusPaste').innerText = `¡Proceso exitoso! Se extrajeron y guardaron ${nuevosRegistros.length} registros válidos.`;
+            document.getElementById('statusPaste').innerText = `¡Proceso exitoso! Se filtraron y guardaron ${nuevosRegistros.length} registros correctos.`;
         }
 
         function limpiarDatos() {
