@@ -94,7 +94,6 @@
                 margin: 0 !important;
                 padding: 0 !important;
             }
-            /* SE ELIMINA EL CONTENEDOR ENVOLVENTE EN LA IMPRESIÓN */
             .print-card-wrapper {
                 background: transparent !important;
                 border: none !important;
@@ -102,7 +101,7 @@
                 padding: 0 !important;
                 margin: 0 !important;
             }
-            #tabEtiquetasLote {
+            #tabEtiquetasLote, #tabEtiquetasPaquete {
                 display: block !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -125,6 +124,21 @@
                 padding: 6px !important;
                 background: white !important;
             }
+            /* Ocultar bordes de inputs al imprimir paquetes */
+            .etiqueta-paquete-print input {
+                border: none !important;
+                background: transparent !important;
+                outline: none !important;
+                box-shadow: none !important;
+                text-align: center;
+            }
+            .etiqueta-paquete-print {
+                border: 2px solid #000 !important;
+                background: #fff !important;
+                box-shadow: none !important;
+                margin: auto;
+                max-width: 600px;
+            }
         }
     </style>
 </head>
@@ -134,7 +148,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v4.3)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v4.4)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -238,7 +252,7 @@
                 <div class="flex space-x-2">
                     <button onclick="cambiarVistaTab('tabMeterDatos')" id="btnTabMeter" class="bg-ineRed text-white text-xs font-bold py-2 px-4 rounded shadow transition">📥 Subir Archivo / Datos</button>
                     <button onclick="cambiarVistaTab('tabEtiquetasLote')" id="btnTabLote" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-4 rounded transition">🏷️ Etiquetas por Lote</button>
-                    <button onclick="cambiarVistaTab('tabEtiquetasPaquete')" id="btnTabPaquete" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-4 rounded transition">📦 Etiquetas por Paquete (Próx.)</button>
+                    <button onclick="cambiarVistaTab('tabEtiquetasPaquete')" id="btnTabPaquete" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-4 rounded transition">📦 Etiquetas por Paquete</button>
                 </div>
                 <div class="text-xs font-semibold text-slate-600" id="infoSesionDistrito"></div>
             </div>
@@ -317,8 +331,8 @@
                 </div>
             </div>
 
-            <!-- VISTA 2: ETIQUETAS POR LOTE (CONTENEDOR EXTERNO REMOVIDO AL IMPRIMIR) -->
-            <div id="tabEtiquetasLote" class="space-y-6">
+            <!-- VISTA 2: ETIQUETAS POR LOTE -->
+            <div id="tabEtiquetasLote" class="space-y-6 hidden">
                 <div class="print-card-wrapper bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
                         <div>
@@ -341,11 +355,132 @@
                 </div>
             </div>
 
-            <!-- VISTA 3: ETIQUETAS POR PAQUETE -->
+            <!-- VISTA 3: ETIQUETAS POR PAQUETE (FORMATO INTERACTIVO OFICIAL) -->
             <div id="tabEtiquetasPaquete" class="space-y-6 hidden">
-                <div class="bg-white rounded-xl shadow-md p-8 border border-slate-200 text-center py-16 space-y-3">
-                    <h2 class="text-lg font-bold text-slate-700">Módulo de Etiquetas por Paquete</h2>
-                    <p class="text-xs text-slate-500">Esta sección se configurará en la siguiente actividad.</p>
+                <div class="print-card-wrapper bg-white rounded-xl shadow-md p-8 border border-slate-200 space-y-6 max-w-2xl mx-auto">
+                    <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-800 uppercase">Etiqueta para Identificación de Paquetes</h2>
+                            <p class="text-xs text-slate-500">Formato oficial interactivo para captura y control de paquetes.</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="agregarFilaPaquete()" class="no-print bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">
+                                ➕ Agregar Fila
+                            </button>
+                            <button onclick="window.print()" class="no-print bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded shadow transition">
+                                🖨️ Imprimir Etiqueta
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ETIQUETA OFICIAL VERTICAL DE PAQUETE -->
+                    <div class="etiqueta-paquete-print border-2 border-black p-4 bg-white space-y-3 font-sans text-xs">
+                        
+                        <!-- ENCABEZADO -->
+                        <div class="flex items-center justify-between border-b-2 border-black pb-2">
+                            <div class="flex items-center space-x-2">
+                                <img src="logo_ine_2026.png" alt="INE" class="h-8 object-contain">
+                            </div>
+                            <div class="text-center flex-grow space-y-0.5">
+                                <h3 class="font-extrabold text-sm tracking-wide text-black">INSTITUTO NACIONAL ELECTORAL</h3>
+                                <p class="text-[10px] font-bold text-slate-700 uppercase">REGISTRO FEDERAL DE ELECTORES</p>
+                                <p class="text-[11px] font-black text-ineRed uppercase">ETIQUETA PARA IDENTIFICACIÓN DE PAQUETES</p>
+                            </div>
+                        </div>
+
+                        <!-- DATOS GENERALES -->
+                        <div class="space-y-1 font-bold text-black border-b-2 border-black pb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-20">ENTIDAD:</span>
+                                <input type="text" id="paqEntidad" value="COAHUILA" class="border-b border-black flex-grow px-1 font-normal uppercase text-xs focus:outline-none">
+                                <span class="border border-black px-2 py-0.5 text-center font-mono">05</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="w-20">DISTRITO:</span>
+                                <input type="text" id="paqDistrito" value="3" class="border-b border-black flex-grow px-1 font-normal text-xs focus:outline-none">
+                                <span class="border border-black px-2 py-0.5 text-center font-mono">03</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="w-20">MÓDULO:</span>
+                                <input type="text" id="paqMod1" value="05" class="border-b border-black w-12 text-center font-mono font-normal text-xs focus:outline-none">
+                                <input type="text" id="paqMod2" value="03" class="border-b border-black w-12 text-center font-mono font-normal text-xs focus:outline-none">
+                                <input type="text" id="paqMod3" value="51" class="border-b border-black w-12 text-center font-mono font-normal text-xs focus:outline-none">
+                            </div>
+                        </div>
+
+                        <!-- CONTENIDO / CAJA -->
+                        <div class="space-y-2 border-b-2 border-black pb-2">
+                            <div class="text-center bg-slate-100 border border-black py-1 font-extrabold uppercase text-[11px]">
+                                CONTENIDO: CPV DEVUELTAS A LA ENTREGA
+                            </div>
+                            <div class="flex justify-center items-center space-x-2 font-bold text-xs">
+                                <span>CAJA:</span>
+                                <input type="number" value="1" min="1" class="border-b border-black w-12 text-center font-mono text-xs focus:outline-none">
+                                <span>DE</span>
+                                <input type="number" value="1" min="1" class="border-b border-black w-12 text-center font-mono text-xs focus:outline-none">
+                            </div>
+
+                            <!-- TABLA DE SECCIONES -->
+                            <div class="border border-black">
+                                <table class="w-full text-center border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-100 border-b border-black text-[10px] font-bold">
+                                            <th class="border-r border-black p-1 w-1/4">SECCIÓN</th>
+                                            <th class="border-r border-black p-1 w-1/4">CRED.</th>
+                                            <th class="border-r border-black p-1 w-1/4">SECCIÓN</th>
+                                            <th class="p-1 w-1/4">CRED.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaPaqueteBody" class="divide-y divide-black">
+                                        <tr>
+                                            <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                                            <td class="border-r border-black p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+                                            <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                                            <td class="p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                                            <td class="border-r border-black p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+                                            <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                                            <td class="p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                                            <td class="border-r border-black p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+                                            <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                                            <td class="p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- TOTAL -->
+                            <div class="flex justify-end items-center space-x-2 pt-1 font-bold text-xs">
+                                <span class="uppercase">TOTAL DE CREDENCIALES:</span>
+                                <input type="text" id="totalPaqueteInput" value="0" readonly class="border-b-2 border-black w-20 text-center font-mono font-black text-ineRed text-sm focus:outline-none bg-transparent">
+                            </div>
+                        </div>
+
+                        <!-- FUNCIONARIO ELECTORAL -->
+                        <div class="space-y-1.5 pt-1 text-[11px] font-bold">
+                            <div class="text-center font-extrabold uppercase bg-slate-50 border border-slate-300 py-0.5">
+                                FUNCIONARIO ELECTORAL
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="w-16">NOMBRE:</span>
+                                <input type="text" placeholder="Nombre completo del funcionario" class="border-b border-black flex-grow px-1 font-normal text-xs focus:outline-none">
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="w-16">PUESTO:</span>
+                                <input type="text" placeholder="Cargo o puesto" class="border-b border-black flex-grow px-1 font-normal text-xs focus:outline-none">
+                            </div>
+                            <div class="pt-4 pb-2 text-center">
+                                <div class="w-48 mx-auto border-b border-black mb-1"></div>
+                                <span class="text-[10px] text-slate-600 uppercase">FIRMA</span>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
 
@@ -736,6 +871,32 @@
 
         function cerrarModalTablaDepurada() {
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
+        }
+
+        // FUNCIONES DE PAQUETE (AGREGAR FILA Y CALCULAR TOTALES)
+        function agregarFilaPaquete() {
+            const tbody = document.getElementById('tablaPaqueteBody');
+            if (!tbody) return;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                <td class="border-r border-black p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+                <td class="border-r border-black p-0.5"><input type="text" class="w-full text-center border-0 text-xs focus:outline-none font-mono"></td>
+                <td class="p-0.5"><input type="number" class="w-full text-center border-0 text-xs focus:outline-none font-mono" oninput="calcularTotalPaquete()"></td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function calcularTotalPaquete() {
+            const tbody = document.getElementById('tablaPaqueteBody');
+            if (!tbody) return;
+            const inputs = tbody.querySelectorAll('input[type="number"]');
+            let total = 0;
+            inputs.forEach(input => {
+                const val = parseInt(input.value) || 0;
+                total += val;
+            });
+            document.getElementById('totalPaqueteInput').value = total;
         }
 
         // GENERACIÓN DE ETIQUETAS POR LOTE
