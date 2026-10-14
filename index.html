@@ -74,6 +74,12 @@
         }
     </script>
     <style>
+        #contenedorEtiquetasLote {
+            display: grid !important;
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            gap: 12px !important;
+            width: 100% !important;
+        }
         @media print {
             header, nav, #configSection, .no-print, footer {
                 display: none !important;
@@ -82,12 +88,12 @@
                 background: white !important;
                 color: black !important;
                 margin: 0;
-                padding: 10mm;
+                padding: 5mm;
             }
             #contenedorEtiquetasLote {
                 display: grid !important;
-                grid-template-columns: repeat(2, 1fr) !important;
-                gap: 15px !important;
+                grid-template-columns: repeat(4, 1fr) !important;
+                gap: 8px !important;
                 width: 100% !important;
             }
             .etiqueta-ine {
@@ -97,6 +103,7 @@
                 box-shadow: none !important;
                 width: 100% !important;
                 max-width: none !important;
+                padding: 10px !important;
             }
         }
     </style>
@@ -107,7 +114,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.5)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.6)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -164,7 +171,7 @@
     </div>
 
     <!-- Contenido Principal -->
-    <main class="flex-grow container mx-auto px-4 py-6 max-w-7xl space-y-6">
+    <main class="flex-grow container mx-auto px-4 py-6 max-w-[98%] space-y-6">
 
         <!-- PASO 1: CONFIGURACIÓN INICIAL -->
         <section id="configSection" class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
@@ -290,7 +297,7 @@
                 </div>
             </div>
 
-            <!-- VISTA 2: ETIQUETAS POR LOTE -->
+            <!-- VISTA 2: ETIQUETAS POR LOTE (CUADRÍCULA 4 COLUMNAS) -->
             <div id="tabEtiquetasLote" class="space-y-6 hidden">
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
@@ -308,8 +315,8 @@
                         </div>
                     </div>
 
-                    <div id="contenedorEtiquetasLote" class="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                        <div class="text-center py-10 text-slate-400 italic col-span-2">Cargando datos y generando lotes de etiquetas...</div>
+                    <div id="contenedorEtiquetasLote" class="py-4">
+                        <div class="text-center py-10 text-slate-400 italic col-span-4">Cargando datos y generando lotes de etiquetas...</div>
                     </div>
                 </div>
             </div>
@@ -703,21 +710,20 @@
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
         }
 
-        // GENERACIÓN DE ETIQUETAS POR LOTE (Múltiples etiquetas, bloques de 100, partición exacta)
+        // GENERACIÓN DE ETIQUETAS POR LOTE (Cuadrícula 4 columnas, partición exacta de 100)
         function generarEtiquetasPorLote() {
             const container = document.getElementById('contenedorEtiquetasLote');
             if (!container) return;
             container.innerHTML = '';
 
             if (!window.descargaInfoDB || window.descargaInfoDB.length === 0 || !sesionActualConfig) {
-                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-2">No hay datos suficientes. Sube tu archivo Excel primero.</div>`;
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-4">No hay datos suficientes. Sube tu archivo Excel primero.</div>`;
                 return;
             }
 
             const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
             const distritoLocal = sesionActualConfig.distrito;
 
-            // Ordenamiento estricto por Módulo -> Entidad CPV (con letra) -> Sección
             let dataGlobalOrdenada = [...window.descargaInfoDB].sort((a, b) => {
                 if (a.modulo !== b.modulo) return a.modulo.localeCompare(b.modulo);
                 const entA = obtenerNombreEntidad(a.entidadCpv);
@@ -742,7 +748,6 @@
                     }
                 });
 
-                // Algoritmo de acumulación y partición de bloques de 100
                 let paquetesSecciones = [];
                 let currentBatchSections = [];
                 let currentBatchTotal = 0;
@@ -764,7 +769,6 @@
                             credsRestantes -= spaceLeft;
                             currentBatchTotal += spaceLeft;
                             
-                            // Asegurar que el último elemento sea secNum
                             if (!currentBatchSections.includes(secNum)) {
                                 currentBatchSections.push(secNum);
                             }
@@ -803,7 +807,7 @@
                     });
                 }
 
-                // Renderizar todas las etiquetas locales del módulo
+                // Renderizar todas las tarjetas en la cuadrícula de 4 columnas
                 paquetesSecciones.forEach(paq => {
                     const leyenda = (paq.minSec === paq.maxSec) ? `Sección ${paq.minSec}` : `De la Sección ${paq.minSec} a la Sección ${paq.maxSec}`;
                     const tarjetaHtml = crearHtmlEtiquetaINE({
@@ -816,7 +820,6 @@
                     container.appendChild(tarjetaHtml);
                 });
 
-                // Renderizar tarjeta de Otras Entidades si aplica
                 if (totalOtrasEntidades > 0) {
                     const tarjetaOtrasHtml = crearHtmlEtiquetaINE({
                         entidad: entidadLocal,
@@ -832,39 +835,39 @@
 
         function crearHtmlEtiquetaINE(info) {
             const wrapper = document.createElement('div');
-            wrapper.className = "etiqueta-ine border-2 border-slate-900 p-4 bg-white shadow-sm rounded-md space-y-2.5 font-sans max-w-sm mx-auto w-full";
+            wrapper.className = "etiqueta-ine border-2 border-slate-900 p-3 bg-white shadow-sm rounded-md space-y-2 font-sans w-full";
             wrapper.innerHTML = `
-                <div class="flex items-center space-x-3 border-b-2 border-slate-900 pb-2">
-                    <div class="w-7 h-7 bg-rose-700 transform rotate-45 flex items-center justify-center shadow-inner">
-                        <div class="w-2.5 h-2.5 bg-white transform -rotate-45"></div>
+                <div class="flex items-center space-x-2 border-b-2 border-slate-900 pb-1.5">
+                    <div class="w-6 h-6 bg-rose-700 transform rotate-45 flex items-center justify-center shadow-inner">
+                        <div class="w-2 h-2 bg-white transform -rotate-45"></div>
                     </div>
                     <div>
-                        <h3 class="text-sm font-black text-slate-900 tracking-tight leading-none">INE</h3>
-                        <p class="text-[9px] font-bold text-slate-700 tracking-tight">Instituto Nacional Electoral</p>
+                        <h3 class="text-xs font-black text-slate-900 tracking-tight leading-none">INE</h3>
+                        <p class="text-[8px] font-bold text-slate-700 tracking-tight">Instituto Nacional Electoral</p>
                     </div>
                 </div>
-                <div class="text-xs space-y-1 font-bold text-slate-900">
-                    <div class="flex items-center border-b border-dashed border-slate-400 pb-1">
-                        <span class="w-24">ENTIDAD:</span>
-                        <span class="border-b border-slate-900 flex-grow px-2 font-normal uppercase">${info.entidad}</span>
+                <div class="text-[11px] space-y-0.5 font-bold text-slate-900">
+                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
+                        <span class="w-20">ENTIDAD:</span>
+                        <span class="border-b border-slate-900 flex-grow px-1 font-normal uppercase">${info.entidad}</span>
                     </div>
-                    <div class="flex items-center border-b border-dashed border-slate-400 pb-1">
-                        <span class="w-24">DTTO:</span>
-                        <span class="border-b border-slate-900 flex-grow px-2 font-normal">${info.distrito}</span>
+                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
+                        <span class="w-20">DTTO:</span>
+                        <span class="border-b border-slate-900 flex-grow px-1 font-normal">${info.distrito}</span>
                     </div>
-                    <div class="flex items-center border-b border-dashed border-slate-400 pb-1">
-                        <span class="w-24">MÓDULO:</span>
-                        <span class="border-b border-slate-900 flex-grow px-2 font-mono font-bold">${info.modulo}</span>
+                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
+                        <span class="w-20">MÓDULO:</span>
+                        <span class="border-b border-slate-900 flex-grow px-1 font-mono font-bold">${info.modulo}</span>
                     </div>
                 </div>
-                <div class="text-xs font-bold text-slate-900 py-1 text-center bg-slate-100 border border-slate-300 rounded uppercase">
+                <div class="text-[11px] font-bold text-slate-900 py-1 text-center bg-slate-100 border border-slate-300 rounded uppercase">
                     ${info.leyendaSeccion}
                 </div>
-                <div class="space-y-1 pt-0.5 border-t border-slate-300">
-                    <p class="text-[9px] font-extrabold text-slate-700 uppercase">TOTAL DE DOCUMENTOS:</p>
-                    <div class="flex items-center text-xs font-bold">
-                        <span class="w-28">CREDENCIALES:</span>
-                        <span class="border-b-2 border-slate-900 flex-grow px-2 font-mono text-base font-black text-ineRed text-center">${info.totalCredenciales}</span>
+                <div class="space-y-0.5 pt-0.5 border-t border-slate-300">
+                    <p class="text-[8px] font-extrabold text-slate-700 uppercase">TOTAL DE DOCUMENTOS:</p>
+                    <div class="flex items-center text-[11px] font-bold">
+                        <span class="w-24">CREDENCIALES:</span>
+                        <span class="border-b-2 border-slate-900 flex-grow px-1 font-mono text-sm font-black text-ineRed text-center">${info.totalCredenciales}</span>
                     </div>
                 </div>
             `;
