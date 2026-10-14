@@ -6,25 +6,23 @@
     <title>Sistema de Extracción y Filtrado CPV - INE</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería SheetJS (XLSX) para leer archivos de Excel directamente en el navegador -->
+    <!-- SheetJS (XLSX) para leer archivos de Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Firebase SDK v10 (Modular) -->
+    <!-- Firebase SDK v10 (Modular) con tus credenciales -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Configuración de Firebase (Sustituye con tus credenciales de tu consola de Firebase)
         const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            authDomain: "tu-proyecto.firebaseapp.com",
-            databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
-            projectId: "tu-proyecto",
-            storageBucket: "tu-proyecto.appspot.com",
-            messagingSenderId: "TU_MESSAGING_SENDER_ID",
-            appId: "TU_APP_ID"
+            apiKey: "AIzaSyA6jvnsXZwF2anOJo3VadfNvn7Fl6Z5efY",
+            authDomain: "sistema-mac-reportes.firebaseapp.com",
+            databaseURL: "https://sistema-mac-reportes-default-rtdb.firebaseio.com",
+            projectId: "sistema-mac-reportes",
+            storageBucket: "sistema-mac-reportes.firebasestorage.app",
+            messagingSenderId: "776250701305",
+            appId: "1:776250701305:web:ac542564b7f7a136cef928"
         };
 
-        // Inicializar Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         window.db = db;
@@ -32,6 +30,22 @@
         window.firebasePush = push;
         window.firebaseSet = set;
         window.firebaseOnValue = onValue;
+
+        // Sincronizar automáticamente en tiempo real con Firebase
+        const dbRef = ref(db, 'Descarga_info');
+        onValue(dbRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const loadedData = Object.values(data);
+                if (loadedData.length > 0) {
+                    window.descargaInfoDB = loadedData;
+                    localStorage.setItem('descarga_info_db', JSON.stringify(loadedData));
+                    if (typeof actualizarVista === 'function') {
+                        actualizarVista();
+                    }
+                }
+            }
+        });
     </script>
 
     <script>
@@ -84,7 +98,7 @@
             <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
                 <div>
                     <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">2. O Subir Archivo de Excel (.xlsx / .xls)</h2>
-                    <p class="text-xs text-slate-500 mb-3">Selecciona tu archivo Excel para extraer y filtrar automáticamente los datos igual que el Ctrl + V.</p>
+                    <p class="text-xs text-slate-500 mb-3">Selecciona tu archivo Excel para extraer y filtrar automáticamente.</p>
                     <input type="file" id="excelFile" accept=".xlsx, .xls" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer border border-slate-300 rounded-lg p-2">
                 </div>
                 <div class="flex justify-between items-center mt-3">
@@ -130,11 +144,10 @@
         <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
             <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
                 <div>
-                    <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info</h2>
-                    <p class="text-xs text-slate-500">Registros filtrados y ajustados al orden correcto de columnas</p>
+                    <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info (Firebase)</h2>
+                    <p class="text-xs text-slate-500">Registros sincronizados en la nube y ordenados correctamente</p>
                 </div>
                 <div class="space-x-2">
-                    <button onclick="limpiarBaseDatos()" class="text-xs text-red-600 hover:underline font-semibold">Vaciar Datos</button>
                     <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
                         Exportar JSON
                     </button>
@@ -165,7 +178,7 @@
                     </thead>
                     <tbody id="descargaInfoTableBody" class="divide-y divide-slate-200">
                         <tr>
-                            <td colspan="15" class="p-6 text-center text-slate-400 italic">No hay datos procesados todavía. Pega la información o sube un archivo Excel.</td>
+                            <td colspan="15" class="p-6 text-center text-slate-400 italic">Cargando datos desde Firebase...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -179,13 +192,10 @@
         Sistema de Control y Filtrado CPV &copy; 2026 — Registro Federal de Electores
     </footer>
 
-    <!-- Lógica de Procesamiento y Mapeo Correcto de Columnas -->
+    <!-- Lógica de Procesamiento -->
     <script>
-        let descargaInfoDB = JSON.parse(localStorage.getItem('descarga_info_db')) || [];
+        window.descargaInfoDB = JSON.parse(localStorage.getItem('descarga_info_db')) || [];
         
-        // Renderizar inicial
-        actualizarVista();
-
         const MODULOS_OBJETIVO = ['50351', '050351', '50353', '050353', '050354', '050354'];
 
         function procesarDatosCrudos(lineas) {
@@ -206,25 +216,19 @@
                     });
 
                     if (esModuloValido) {
-                        // Corrección de orden de columnas solicitada:
-                        // - Entidad CPV toma el valor de Sección anterior
-                        // - Sección toma el valor de Mal Impresas
-                        // - Mal Impresas, Duplicadas, Sobrantes, etc. corregidas según orden real de celdas
-                        const nums = columnas.filter(c => !isNaN(c) && c !== "");
-
                         const registro = {
                             entidadTramite: columnas[0] || 'Coahuila',
                             distrito: columnas[1] || '3',
                             modulo: moduloEncontrado,
-                            entidadCpv: columnas[3] || columnas[2] || 'Coahuila', // Ajustado
-                            seccion: columnas[4] || columnas[3] || '0',             // Ajustado
-                            malImpresas: Number(columnas[5] || 0),                // Ajustado
+                            entidadCpv: columnas[3] || columnas[2] || 'Coahuila',
+                            seccion: columnas[4] || columnas[3] || '0',
+                            malImpresas: Number(columnas[5] || 0),
                             duplicadas: Number(columnas[6] || 0),
                             sobrantes: Number(columnas[7] || 0),
                             anexasIndividual: Number(columnas[8] || 0),
                             anexasReimpresion: Number(columnas[9] || 0),
-                            devueltasEntrega: Number(columnas[11] || 0),          // Retiradas MAC movido aquí
-                            retiradasMac: Number(columnas[12] || 0),              // Devueltas Terceros movido aquí
+                            devueltasEntrega: Number(columnas[11] || 0),
+                            retiradasMac: Number(columnas[12] || 0),
                             devueltasTerceros: Number(columnas[13] || 0),
                             capturadas: Number(columnas[14] || 0),
                             total: Number(columnas[columnas.length - 1] || 0)
@@ -253,7 +257,7 @@
                 return;
             }
 
-            guardarYActualizar(nuevos);
+            guardarEnFirebaseYActualizar(nuevos);
             document.getElementById('statusPaste').innerText = `¡Se procesaron ${nuevos.length} registros!`;
         }
 
@@ -269,12 +273,9 @@
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                
-                // Leer la primera hoja del Excel
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                // Convertir a texto tabulado para reutilizar el mismo motor de extracción
                 const textData = XLSX.utils.sheet_to_csv(worksheet, { FS: "\t" });
                 const lineas = textData.split('\n');
                 
@@ -285,35 +286,21 @@
                     return;
                 }
 
-                guardarYActualizar(nuevos);
+                guardarEnFirebaseYActualizar(nuevos);
                 document.getElementById('statusExcel').innerText = `¡Archivo procesado con éxito (${nuevos.length} registros)!`;
             };
             reader.readAsArrayBuffer(file);
         }
 
-        function guardarYActualizar(nuevosRegistros) {
-            descargaInfoDB = [...nuevosRegistros, ...descargaInfoDB];
-            localStorage.setItem('descarga_info_db', JSON.stringify(descargaInfoDB));
-
-            // Si Firebase está disponible, también guardamos en la nube
+        function guardarEnFirebaseYActualizar(nuevosRegistros) {
             if (window.db && window.firebaseRef && window.firebasePush) {
-                try {
-                    const dbRef = window.firebaseRef(window.db, 'Descarga_info');
-                    nuevosRegistros.forEach(reg => {
-                        window.firebasePush(dbRef, reg);
-                    });
-                } catch (err) {
-                    console.log("Firebase sync note: Configura tus credenciales reales para sincronizar en la nube.");
-                }
-            }
-
-            actualizarVista();
-        }
-
-        function limpiarBaseDatos() {
-            if (confirm('¿Deseas vaciar todos los registros de la base de datos?')) {
-                descargaInfoDB = [];
-                localStorage.removeItem('descarga_info_db');
+                const dbRef = window.firebaseRef(window.db, 'Descarga_info');
+                nuevosRegistros.forEach(reg => {
+                    window.firebasePush(dbRef, reg);
+                });
+            } else {
+                window.descargaInfoDB = [...nuevosRegistros, ...window.descargaInfoDB];
+                localStorage.setItem('descarga_info_db', JSON.stringify(window.descargaInfoDB));
                 actualizarVista();
             }
         }
@@ -328,7 +315,7 @@
             let t53 = 0, c53 = 0;
             let t54 = 0, c54 = 0;
 
-            descargaInfoDB.forEach(reg => {
+            window.descargaInfoDB.forEach(reg => {
                 const mod = String(reg.modulo).replace(/^0+/, '');
                 const tot = Number(reg.total) || 0;
 
@@ -349,13 +336,13 @@
 
         function renderizarTablaDescargaInfo() {
             const tbody = document.getElementById('descargaInfoTableBody');
-            if (descargaInfoDB.length === 0) {
+            if (!window.descargaInfoDB || window.descargaInfoDB.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-400 italic">No hay datos guardados en Descarga_info.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = '';
-            descargaInfoDB.forEach(reg => {
+            window.descargaInfoDB.forEach(reg => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="p-2 border-r">${reg.entidadTramite}</td>
@@ -372,18 +359,18 @@
                     <td class="p-2 border-r text-center font-semibold text-indigo-700">${reg.retiradasMac}</td>
                     <td class="p-2 border-r text-center">${reg.devueltasTerceros}</td>
                     <td class="p-2 border-r text-center">${reg.capturadas}</td>
-                    <td class="p-2 text-center font-bold bg-slate-50">${reg.total}</td>
+                    <td class="p-2 border-r text-center font-bold bg-slate-50">${reg.total}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
         function exportarDescargaInfo() {
-            if (descargaInfoDB.length === 0) {
+            if (!window.descargaInfoDB || window.descargaInfoDB.length === 0) {
                 alert('No hay datos para exportar.');
                 return;
             }
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(descargaInfoDB, null, 2));
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.descargaInfoDB, null, 2));
             const downloadAnchor = document.createElement('a');
             downloadAnchor.setAttribute("href", dataStr);
             downloadAnchor.setAttribute("download", "Descarga_info.json");
