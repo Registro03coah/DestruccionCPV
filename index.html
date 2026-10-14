@@ -114,7 +114,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.6)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.7)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -303,7 +303,7 @@
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
                         <div>
                             <h2 class="text-base font-bold text-slate-800 uppercase">Generador de Etiquetas por Lote (Formato Oficial INE)</h2>
-                            <p class="text-xs text-slate-500">Paquetes exactos de 100 en 100 con partición de secciones y orden Módulo -> Entidad CPV (letra) -> Sección.</p>
+                            <p class="text-xs text-slate-500">Paquetes exactos de 100 en 100 con partición de secciones y separación por Entidad CPV.</p>
                         </div>
                         <div class="flex space-x-2">
                             <button onclick="abrirModalTablaDepurada()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">
@@ -361,6 +361,15 @@
                 if (nombre === valStr || num === valStr) return nombre;
             }
             return valStr;
+        }
+
+        function esEntidadLocal(entCpvVal, entidadConfig) {
+            const entCpvStr = String(entCpvVal).trim().toUpperCase();
+            const configStr = String(entidadConfig).trim().toUpperCase();
+            const nombreHomologado = obtenerNombreEntidad(entCpvStr);
+            const nombreConfigHomologado = obtenerNombreEntidad(configStr);
+
+            return nombreHomologado === nombreConfigHomologado || entCpvStr === '5' || entCpvStr === 'COAHUILA';
         }
 
         function generarCuadrosModulos() {
@@ -710,7 +719,7 @@
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
         }
 
-        // GENERACIÓN DE ETIQUETAS POR LOTE (Cuadrícula 4 columnas, partición exacta de 100)
+        // GENERACIÓN DE ETIQUETAS POR LOTE (Validando Entidad CPV local vs Otras Entidades)
         function generarEtiquetasPorLote() {
             const container = document.getElementById('contenedorEtiquetasLote');
             if (!container) return;
@@ -740,14 +749,14 @@
                 let totalOtrasEntidades = 0;
 
                 registrosModulo.forEach(reg => {
-                    const entCpvNombre = obtenerNombreEntidad(reg.entidadCpv);
-                    if (entCpvNombre === entidadLocal) {
+                    if (esEntidadLocal(reg.entidadCpv, entidadLocal)) {
                         registrosMismaEntidad.push(reg);
                     } else {
                         totalOtrasEntidades += Number(reg.total) || 0;
                     }
                 });
 
+                // Algoritmo de acumulación y partición de bloques de 100 para la entidad local
                 let paquetesSecciones = [];
                 let currentBatchSections = [];
                 let currentBatchTotal = 0;
@@ -807,7 +816,7 @@
                     });
                 }
 
-                // Renderizar todas las tarjetas en la cuadrícula de 4 columnas
+                // Renderizar etiquetas normales por secciones
                 paquetesSecciones.forEach(paq => {
                     const leyenda = (paq.minSec === paq.maxSec) ? `Sección ${paq.minSec}` : `De la Sección ${paq.minSec} a la Sección ${paq.maxSec}`;
                     const tarjetaHtml = crearHtmlEtiquetaINE({
@@ -815,18 +824,21 @@
                         distrito: distritoLocal,
                         modulo: mod,
                         leyendaSeccion: leyenda,
-                        totalCredenciales: paq.totalCreds
+                        totalCredenciales: paq.totalCreds,
+                        esOtrasEntidades: false
                     });
                     container.appendChild(tarjetaHtml);
                 });
 
+                // Renderizar tarjeta de OTRAS ENTIDADES si la suma es mayor a 0
                 if (totalOtrasEntidades > 0) {
                     const tarjetaOtrasHtml = crearHtmlEtiquetaINE({
                         entidad: entidadLocal,
                         distrito: distritoLocal,
                         modulo: mod,
                         leyendaSeccion: `OTRAS ENTIDADES`,
-                        totalCredenciales: totalOtrasEntidades
+                        totalCredenciales: totalOtrasEntidades,
+                        esOtrasEntidades: true
                     });
                     container.appendChild(tarjetaOtrasHtml);
                 }
@@ -836,6 +848,22 @@
         function crearHtmlEtiquetaINE(info) {
             const wrapper = document.createElement('div');
             wrapper.className = "etiqueta-ine border-2 border-slate-900 p-3 bg-white shadow-sm rounded-md space-y-2 font-sans w-full";
+            
+            let seccionHtml = '';
+            if (info.esOtrasEntidades) {
+                seccionHtml = `
+                    <div class="text-[11px] font-extrabold text-slate-900 py-1 text-center bg-amber-100 border border-amber-300 rounded uppercase tracking-wider">
+                        OTRAS ENTIDADES
+                    </div>
+                `;
+            } else {
+                seccionHtml = `
+                    <div class="text-[11px] font-bold text-slate-900 py-1 text-center bg-slate-100 border border-slate-300 rounded uppercase">
+                        ${info.leyendaSeccion}
+                    </div>
+                `;
+            }
+
             wrapper.innerHTML = `
                 <div class="flex items-center space-x-2 border-b-2 border-slate-900 pb-1.5">
                     <div class="w-6 h-6 bg-rose-700 transform rotate-45 flex items-center justify-center shadow-inner">
@@ -860,9 +888,7 @@
                         <span class="border-b border-slate-900 flex-grow px-1 font-mono font-bold">${info.modulo}</span>
                     </div>
                 </div>
-                <div class="text-[11px] font-bold text-slate-900 py-1 text-center bg-slate-100 border border-slate-300 rounded uppercase">
-                    ${info.leyendaSeccion}
-                </div>
+                ${seccionHtml}
                 <div class="space-y-0.5 pt-0.5 border-t border-slate-300">
                     <p class="text-[8px] font-extrabold text-slate-700 uppercase">TOTAL DE DOCUMENTOS:</p>
                     <div class="flex items-center text-[11px] font-bold">
