@@ -80,7 +80,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v2.5)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v2.6)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -102,8 +102,8 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">1. Entidad Federativa (Número):</label>
-                    <input type="number" id="cfgEntidad" placeholder="Ej. 5 (Coahuila)" class="w-full border border-slate-300 rounded p-2 text-xs focus:ring-2 focus:ring-ineRed focus:outline-none">
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">1. Entidad Federativa (Número o Nombre):</label>
+                    <input type="text" id="cfgEntidad" placeholder="Ej. 5 o COAHUILA" class="w-full border border-slate-300 rounded p-2 text-xs focus:ring-2 focus:ring-ineRed focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 uppercase mb-1">2. Distrito Electoral (Número):</label>
@@ -234,7 +234,6 @@
                         </button>
                     </div>
 
-                    <!-- Contenedor donde se generan dinámicamente las etiquetas estilo INE -->
                     <div id="contenedorEtiquetasLote" class="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
                         <div class="text-center py-10 text-slate-400 italic col-span-2">Cargando datos y generando lotes de etiquetas...</div>
                     </div>
@@ -271,15 +270,31 @@
             { bg: 'bg-amber-50', border: 'border-amber-200', textTitle: 'text-amber-600', textVal: 'text-amber-900', badgeBg: 'bg-amber-200', badgeText: 'text-amber-800' }
         ];
 
-        // Mapeo de Entidades INE (Número a Nombre)
+        // Catálogo completo INE (Número y Nombre Bidireccional)
         const CATALOGO_ENTIDADES = {
-            1: "Aguascalientes", 2: "Baja California", 3: "Baja California Sur", 4: "Campeche", 5: "Coahuila",
-            6: "Colima", 7: "Chiapas", 8: "Chihuahua", 9: "Ciudad de México", 10: "Durango", 11: "Guanajuato",
-            12: "Guerrero", 13: "Hidalgo", 14: "Jalisco", 15: "México", 16: "Michoacán", 17: "Morelos",
-            18: "Nayarit", 19: "Nuevo León", 20: "Oaxaca", 21: "Puebla", 22: "Querétaro", 23: "Quintana Roo",
-            24: "San Luis Potosí", 25: "Sinaloa", 26: "Sonora", 27: "Tabasco", 28: "Tamaulipas", 29: "Tlaxcala",
-            30: "Veracruz", 31: "Yucatán", 32: "Zacatecas"
+            1: "AGUASCALIENTES", 2: "BAJA CALIFORNIA", 3: "BAJA CALIFORNIA SUR", 4: "CAMPECHE", 5: "COAHUILA",
+            6: "COLIMA", 7: "CHIAPAS", 8: "CHIHUAHUA", 9: "CIUDAD DE MEXICO", 10: "DURANGO", 11: "GUANAJUATO",
+            12: "GUERRERO", 13: "HIDALGO", 14: "JALISCO", 15: "MEXICO", 16: "MICHOACAN", 17: "MORELOS",
+            18: "NAYARIT", 19: "NUEVO LEON", 20: "OAXACA", 21: "PUEBLA", 22: "QUERETARO", 23: "QUINTANA ROO",
+            24: "SAN LUIS POTOSI", 25: "SINALOA", 26: "SONORA", 27: "TABASCO", 28: "TAMAULIPAS", 29: "TLAXCALA",
+            30: "VERACRUZ", 31: "YUCATAN", 32: "ZACATECAS"
         };
+
+        // Función para normalizar y obtener el nombre de la entidad tanto por número como por nombre
+        function obtenerNombreEntidad(val) {
+            if (!val) return "COAHUILA";
+            const valStr = String(val).trim().toUpperCase();
+            if (CATALOGO_ENTIDADES[valStr]) {
+                return CATALOGO_ENTIDADES[valStr];
+            }
+            // Buscar si coincide con algún nombre exacto
+            for (const [num, nombre] of Object.entries(CATALOGO_ENTIDADES)) {
+                if (nombre === valStr || num === valStr) {
+                    return nombre;
+                }
+            }
+            return valStr; // Si no está en catálogo, retorna el valor escrito
+        }
 
         function generarCuadrosModulos() {
             const count = parseInt(document.getElementById('cfgNumModulos').value) || 0;
@@ -303,12 +318,12 @@
         }
 
         function guardarConfiguracionEntidad() {
-            const entidad = document.getElementById('cfgEntidad').value.trim();
+            const entidadInput = document.getElementById('cfgEntidad').value.trim();
             const distrito = document.getElementById('cfgDistrito').value.trim();
             const numMods = parseInt(document.getElementById('cfgNumModulos').value) || 0;
             const operador = document.getElementById('cfgOperador').value.trim();
 
-            if (!entidad || !distrito || numMods <= 0 || !operador) {
+            if (!entidadInput || !distrito || numMods <= 0 || !operador) {
                 alert('Por favor, completa todos los campos de configuración inicial.');
                 return;
             }
@@ -324,7 +339,8 @@
                 return;
             }
 
-            const configData = { entidad, distrito, operador, modulos, timestamp: Date.now() };
+            const entidadNombre = obtenerNombreEntidad(entidadInput);
+            const configData = { entidad: entidadNombre, entidadInputOriginal: entidadInput, distrito, operador, modulos, timestamp: Date.now() };
 
             if (window.db && window.firebaseRef && window.firebaseSet) {
                 window.firebaseSet(window.firebaseRef(window.db, 'datosentidad'), configData)
@@ -342,7 +358,7 @@
             document.getElementById('lblOpName').innerText = data.operador;
             document.getElementById('badgeOperador').classList.remove('hidden');
             document.getElementById('btnLiberar').classList.remove('hidden');
-            document.getElementById('infoSesionDistrito').innerText = `Entidad: ${CATALOGO_ENTIDADES[data.entidad] || data.entidad} | Distrito: ${data.distrito} | Operador: ${data.operador}`;
+            document.getElementById('infoSesionDistrito').innerText = `Entidad: ${data.entidad} | Distrito: ${data.distrito} | Operador: ${data.operador}`;
 
             document.getElementById('configSection').classList.add('hidden');
             document.getElementById('workSection').classList.remove('hidden');
@@ -438,15 +454,14 @@
                     });
 
                     if (esModuloValido) {
-                        // Corrección de columna capturadas para que no se repita con el total
                         const totalVal = Number(columnas[columnas.length - 1] || 0);
                         const capturadasVal = Number(columnas[14] || columnas[13] || 0);
 
                         const registro = {
-                            entidadTramite: sesionActualConfig ? sesionActualConfig.entidad : (columnas[0] || '5'),
+                            entidadTramite: obtenerNombreEntidad(columnas[0] || '5'),
                             distrito: sesionActualConfig ? sesionActualConfig.distrito : (columnas[1] || '3'),
                             modulo: moduloEncontrado,
-                            entidadCpv: columnas[3] || columnas[2] || '5',
+                            entidadCpv: obtenerNombreEntidad(columnas[3] || columnas[2] || '5'),
                             seccion: Number(columnas[4] || columnas[3] || 0),
                             malImpresas: Number(columnas[5] || 0),
                             duplicadas: Number(columnas[6] || 0),
@@ -535,10 +550,10 @@
             window.descargaInfoDB.forEach(reg => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="p-2 border-r">${CATALOGO_ENTIDADES[reg.entidadTramite] || reg.entidadTramite}</td>
+                    <td class="p-2 border-r">${reg.entidadTramite}</td>
                     <td class="p-2 border-r text-center">${reg.distrito}</td>
                     <td class="p-2 border-r text-center font-bold bg-red-50 text-ineRed">${reg.modulo}</td>
-                    <td class="p-2 border-r">${CATALOGO_ENTIDADES[reg.entidadCpv] || reg.entidadCpv}</td>
+                    <td class="p-2 border-r">${reg.entidadCpv}</td>
                     <td class="p-2 border-r text-center font-semibold">${reg.seccion}</td>
                     <td class="p-2 border-r text-center">${reg.malImpresas}</td>
                     <td class="p-2 border-r text-center">${reg.duplicadas}</td>
@@ -565,32 +580,27 @@
                 return;
             }
 
-            const entidadLocal = String(sesionActualConfig.entidad).trim();
+            const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
             const distritoLocal = sesionActualConfig.distrito;
-            const nombreEntidadLocal = CATALOGO_ENTIDADES[entidadLocal] || "Coahuila";
 
-            // Agrupar por Módulo
             window.modulosPermitidos.forEach(mod => {
                 const registrosModulo = window.descargaInfoDB.filter(r => String(r.modulo).replace(/^0+/, '') === String(mod).replace(/^0+/, ''));
                 if (registrosModulo.length === 0) return;
 
-                // Separar: Misma Entidad vs Otras Entidades
                 let registrosMismaEntidad = [];
                 let totalOtrasEntidades = 0;
 
                 registrosModulo.forEach(reg => {
-                    const entCpvNum = String(reg.entidadCpv).trim();
-                    if (entCpvNum === entidadLocal || CATALOGO_ENTIDADES[entCpvNum] === nombreEntidadLocal) {
+                    const entCpvNombre = obtenerNombreEntidad(reg.entidadCpv);
+                    if (entCpvNombre === entidadLocal) {
                         registrosMismaEntidad.push(reg);
                     } else {
                         totalOtrasEntidades += Number(reg.total) || 0;
                     }
                 });
 
-                // Ordenar por sección de menor a mayor
                 registrosMismaEntidad.sort((a, b) => Number(a.seccion) - Number(b.seccion));
 
-                // Agrupar en paquetes de 100 credenciales (Total de documentos sumando total por sección)
                 let paquetesSecciones = [];
                 let paqueteActual = { minSec: null, maxSec: null, totalCreds: 0 };
 
@@ -612,10 +622,9 @@
                     paquetesSecciones.push(dataPaqueteClon(paqueteActual));
                 }
 
-                // Renderizar Etiquetas de Misma Entidad
                 paquetesSecciones.forEach(paq => {
                     const tarjetaHtml = crearHtmlEtiquetaINE({
-                        entidad: nombreEntidadLocal,
+                        entidad: entidadLocal,
                         distrito: distritoLocal,
                         modulo: mod,
                         leyendaSeccion: `De la Sección ${paq.minSec} a la Sección ${paq.maxSec}`,
@@ -624,10 +633,9 @@
                     container.appendChild(tarjetaHtml);
                 });
 
-                // Renderizar Etiqueta de Otras Entidades (si existen)
                 if (totalOtrasEntidades > 0) {
                     const tarjetaOtrasHtml = crearHtmlEtiquetaINE({
-                        entidad: nombreEntidadLocal,
+                        entidad: entidadLocal,
                         distrito: distritoLocal,
                         modulo: mod,
                         leyendaSeccion: `OTRAS ENTIDADES`,
