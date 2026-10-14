@@ -107,7 +107,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.3)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.4)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -139,8 +139,8 @@
         <div class="bg-white rounded-xl p-6 max-w-4xl w-full shadow-2xl border border-slate-300 space-y-4 max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-slate-800 uppercase">Tabla Depurada Interna (Ordenada: Módulo -> Entidad -> Sección)</h3>
-                    <p class="text-xs text-slate-500">Columnas esenciales (incluyendo Devueltas Entrega).</p>
+                    <h3 class="text-base font-bold text-slate-800 uppercase">Tabla Depurada Interna</h3>
+                    <p class="text-xs text-slate-500">Orden estricto: Módulo -> Entidad CPV (con letra) -> Sección (menor a mayor).</p>
                 </div>
                 <button onclick="cerrarModalTablaDepurada()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1 rounded text-xs transition">✕ Cerrar</button>
             </div>
@@ -254,7 +254,7 @@
                     <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
                         <div>
                             <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info (Filtrada por Módulos Autorizados)</h2>
-                            <p class="text-xs text-slate-500">Registros sincronizados y alineados correctamente</p>
+                            <p class="text-xs text-slate-500">Registros sincronizados y homologados correctamente</p>
                         </div>
                         <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
                             Exportar JSON
@@ -296,7 +296,7 @@
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
                         <div>
                             <h2 class="text-base font-bold text-slate-800 uppercase">Generador de Etiquetas por Lote (Formato Oficial INE)</h2>
-                            <p class="text-xs text-slate-500">Paquetes exactos de 100 en 100 con partición de secciones y orden Módulo -> Entidad -> Sección.</p>
+                            <p class="text-xs text-slate-500">Paquetes exactos de 100 en 100 con partición de secciones y orden Módulo -> Entidad CPV (letra) -> Sección.</p>
                         </div>
                         <div class="flex space-x-2">
                             <button onclick="abrirModalTablaDepurada()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">
@@ -665,7 +665,8 @@
             });
         }
 
-        // VENTANA FLOTANTE: TABLA INTERNA DEPURADA (Muestra Devueltas Entrega en vez de Total)
+        // VENTANA FLOTANTE: TABLA INTERNA DEPURADA
+        // Orden estrictamente solicitado: Módulo -> Entidad CPV (con letra) -> Sección (menor a mayor)
         function abrirModalTablaDepurada() {
             const tbody = document.getElementById('tablaDepuradaBody');
             if (!tbody) return;
@@ -677,7 +678,9 @@
 
             let dataOrdenada = [...window.descargaInfoDB].sort((a, b) => {
                 if (a.modulo !== b.modulo) return a.modulo.localeCompare(b.modulo);
-                if (a.entidadCpv !== b.entidadCpv) return a.entidadCpv.localeCompare(b.entidadCpv);
+                const entA = obtenerNombreEntidad(a.entidadCpv);
+                const entB = obtenerNombreEntidad(b.entidadCpv);
+                if (entA !== entB) return entA.localeCompare(entB);
                 return Number(a.seccion) - Number(b.seccion);
             });
 
@@ -686,7 +689,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="p-2 border-r text-center font-bold bg-red-50 text-ineRed">${reg.modulo}</td>
-                    <td class="p-2 border-r font-semibold uppercase">${reg.entidadCpv}</td>
+                    <td class="p-2 border-r font-semibold uppercase">${obtenerNombreEntidad(reg.entidadCpv)}</td>
                     <td class="p-2 border-r text-center">${reg.distrito}</td>
                     <td class="p-2 border-r text-center font-mono">${reg.seccion}</td>
                     <td class="p-2 text-center font-bold bg-emerald-50 text-emerald-800">${reg.devueltasEntrega}</td>
@@ -701,7 +704,7 @@
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
         }
 
-        // GENERACIÓN DE ETIQUETAS POR LOTE (Paquetes exactos de 100 con partición de secciones)
+        // GENERACIÓN DE ETIQUETAS POR LOTE (Múltiples etiquetas organizadas y ordenadas)
         function generarEtiquetasPorLote() {
             const container = document.getElementById('contenedorEtiquetasLote');
             if (!container) return;
@@ -715,9 +718,12 @@
             const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
             const distritoLocal = sesionActualConfig.distrito;
 
+            // Ordenamiento estricto por Módulo -> Entidad CPV (letra) -> Sección
             let dataGlobalOrdenada = [...window.descargaInfoDB].sort((a, b) => {
                 if (a.modulo !== b.modulo) return a.modulo.localeCompare(b.modulo);
-                if (a.entidadCpv !== b.entidadCpv) return a.entidadCpv.localeCompare(b.entidadCpv);
+                const entA = obtenerNombreEntidad(a.entidadCpv);
+                const entB = obtenerNombreEntidad(b.entidadCpv);
+                if (entA !== entB) return entA.localeCompare(entB);
                 return Number(a.seccion) - Number(b.seccion);
             });
 
@@ -737,6 +743,7 @@
                     }
                 });
 
+                // Lógica de bloques de 100 con partición de secciones
                 let paquetesSecciones = [];
                 let currentBatchSections = [];
                 let currentBatchTotal = 0;
@@ -790,6 +797,7 @@
                     });
                 }
 
+                // Renderizar todas las etiquetas locales del módulo
                 paquetesSecciones.forEach(paq => {
                     const leyenda = (paq.minSec === paq.maxSec) ? `Sección ${paq.minSec}` : `De la Sección ${paq.minSec} a la Sección ${paq.maxSec}`;
                     const tarjetaHtml = crearHtmlEtiquetaINE({
@@ -802,6 +810,7 @@
                     container.appendChild(tarjetaHtml);
                 });
 
+                // Renderizar tarjeta de Otras Entidades si aplica
                 if (totalOtrasEntidades > 0) {
                     const tarjetaOtrasHtml = crearHtmlEtiquetaINE({
                         entidad: entidadLocal,
