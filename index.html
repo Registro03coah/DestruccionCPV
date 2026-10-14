@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Extracción y Filtrado CPV - INE</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ineRed: '#b91c1c',
+                        ineDark: '#1e293b'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header Institucional -->
+    <header class="bg-ineDark text-white shadow-md py-4 px-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Módulo de Filtrado y Base de Datos Descarga_info</p>
+        </div>
+        <div class="text-right">
+            <span class="bg-ineRed text-xs font-semibold px-3 py-1 rounded-full uppercase">Filtro Módulos: 050351, 050353, 050354</span>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="flex-grow container mx-auto px-4 py-6 max-w-7xl space-y-6">
+
+        <!-- Área de Pegado (Ctrl + V) -->
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+            <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">1. Pegar Datos (Ctrl + V) del Reporte General</h2>
+            <p class="text-xs text-slate-500 mb-3">Pega la información completa del reporte. El sistema filtrará automáticamente solo los módulos <strong>050351, 050353 y 050354</strong>.</p>
+            <textarea id="pasteArea" rows="5" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-3 text-xs font-mono focus:border-ineRed focus:outline-none bg-slate-50" placeholder="Haz clic aquí y presiona Ctrl + V para pegar la información..."></textarea>
+            <div class="flex justify-between items-center mt-3">
+                <span id="statusPaste" class="text-xs text-slate-500 italic">Esperando datos para procesar...</span>
+                <div class="space-x-2">
+                    <button onclick="limpiarDatos()" class="text-xs text-red-600 hover:underline font-semibold">Limpiar</button>
+                    <button onclick="procesarYFiltrarDatos()" class="bg-ineRed hover:bg-red-800 text-white font-bold py-2 px-4 rounded transition duration-200 shadow text-xs">
+                        Procesar y Filtrar (Descarga_info)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Datos Filtrados (Descarga_info) -->
+        <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info</h2>
+                    <p class="text-xs text-slate-500">Registros filtrados según los módulos requeridos (050351, 050353, 050354)</p>
+                </div>
+                <div class="space-x-2">
+                    <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
+                        Exportar Base de Datos (JSON)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla con scroll horizontal debido a la cantidad de columnas -->
+            <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-96">
+                <table class="w-full text-xs text-left border-collapse whitespace-nowrap">
+                    <thead class="bg-slate-100 text-slate-700 sticky top-0 border-b">
+                        <tr>
+                            <th class="p-2 border-r">Entidad</th>
+                            <th class="p-2 border-r">Distrito</th>
+                            <th class="p-2 border-r bg-red-50 text-ineRed font-bold">Módulo</th>
+                            <th class="p-2 border-r">Entidad (CPV)</th>
+                            <th class="p-2 border-r">Sección</th>
+                            <th class="p-2 border-r">Mal Impresas</th>
+                            <th class="p-2 border-r">Duplicadas</th>
+                            <th class="p-2 border-r">Sobrantes</th>
+                            <th class="p-2 border-r">Anexas Sol. Individual</th>
+                            <th class="p-2 border-r">Anexas Sol. Reimpresión</th>
+                            <th class="p-2 border-r">Devueltas Entrega</th>
+                            <th class="p-2 border-r">Retiradas MAC</th>
+                            <th class="p-2 border-r">Devueltas Terceros</th>
+                            <th class="p-2 border-r">Capturadas</th>
+                            <th class="p-2 font-bold bg-slate-200">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="descargaInfoTableBody" class="divide-y divide-slate-200">
+                        <tr>
+                            <td colspan="15" class="p-6 text-center text-slate-400 italic">No hay datos procesados todavía. Pega la información arriba para generar la base de datos.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-200 text-slate-600 text-center py-4 text-xs mt-auto">
+        Sistema de Control y Filtrado CPV &copy; 2026 — Registro Federal de Electores
+    </footer>
+
+    <!-- Lógica JavaScript de Extracción y Filtrado -->
+    <script>
+        let descargaInfoDB = JSON.parse(localStorage.getItem('descarga_info_db')) || [];
+        renderizarTablaDescargaInfo();
+
+        const MODULOS_PERMITIDOS = ['050351', '50351', '050353', '50353', '050354', '50354'];
+
+        function procesarYFiltrarDatos() {
+            const pastedText = document.getElementById('pasteArea').value.trim();
+            if (!pastedText) {
+                alert('Por favor, pega la información en el cuadro de texto.');
+                return;
+            }
+
+            const lineas = pastedText.split('\n');
+            let nuevosRegistros = [];
+
+            lineas.forEach(linea => {
+                // Separar por tabulaciones (copiar y pegar de Excel/XML)
+                const columnas = linea.split('\t').map(c => c.trim()).filter(Boolean);
+
+                if (columnas.length >= 5) {
+                    // Buscamos cuál columna coincide con el formato de módulo o contiene los números objetivo
+                    // Intentamos identificar el módulo en las columnas disponibles
+                    let moduloEncontrado = '';
+                    let moduloIndex = -1;
+
+                    columnas.forEach((col, idx) => {
+                        const colClean = col.replace(/^0+/, ''); // Limpiar ceros a la izquierda para comparar
+                        if (MODULOS_PERMITIDOS.includes(col) || MODULOS_PERMITIDOS.includes(colClean) || col === '50351' || col === '50353' || col === '50354') {
+                            moduloEncontrado = col;
+                            moduloIndex = idx;
+                        }
+                    });
+
+                    // Si encontramos un módulo permitido, extraemos los campos según los encabezados solicitados
+                    if (moduloIndex !== -1 || MODULOS_PERMITIDOS.some(m => linea.includes(m))) {
+                        // Mapeo flexible de columnas basado en tu estructura
+                        const registro = {
+                            entidadTramite: columnas[0] || 'Coahuila',
+                            distrito: columnas[4] || columnas[1] || '3',
+                            modulo: moduloEncontrado || columnas[5] || '50354',
+                            entidadCpv: columnas[6] || columnas[2] || 'Coahuila',
+                            seccion: columnas[8] || columnas[3] || '0',
+                            malImpresas: Number(columnas[11] || 0),
+                            duplicadas: Number(columnas[12] || 0),
+                            sobrantes: Number(columnas[15] || 0),
+                            anexasIndividual: Number(columnas[17] || 0),
+                            anexasReimpresion: Number(columnas[19] || 0),
+                            devueltasEntrega: Number(columnas[22] || 0),
+                            retiradasMac: Number(columnas[25] || 0),
+                            devueltasTerceros: Number(columnas[26] || 0),
+                            capturadas: Number(columnas[29] || 0),
+                            total: Number(columnas[33] || 0)
+                        };
+
+                        // Validar estrictamente que el módulo sea uno de los 3 permitidos (normalizando ceros)
+                        const modClean = String(registro.modulo).replace(/^0+/, '');
+                        if (modClean === '50351' || modClean === '50353' || modClean === '50354') {
+                            nuevosRegistros.push(registro);
+                        }
+                    }
+                }
+            });
+
+            // Si por formato rápido no detectó columnas por tabulación exacta, hacemos un análisis inteligente por regex de filas
+            if (nuevosRegistros.length === 0) {
+                lineas.forEach(linea => {
+                    if (linea.includes('050351') || linea.includes('50351') || linea.includes('050353') || linea.includes('50353') || linea.includes('050354') || linea.includes('50354')) {
+                        const nums = linea.match(/-?\d+/g) || [];
+                        if (nums.length >= 5) {
+                            nuevosRegistros.push({
+                                entidadTramite: 'Coahuila',
+                                distrito: nums[1] || '3',
+                                modulo: nums.find(n => MODULOS_PERMITIDOS.includes(n)) || '50354',
+                                entidadCpv: 'Coahuila',
+                                seccion: nums[2] || '1',
+                                malImpresas: 0,
+                                duplicadas: 0,
+                                sobrantes: 0,
+                                anexasIndividual: 0,
+                                anexasReimpresion: 0,
+                                devueltasEntrega: Number(nums[nums.length - 2] || 0),
+                                retiradasMac: 0,
+                                devueltasTerceros: 0,
+                                capturadas: 0,
+                                total: Number(nums[nums.length - 1] || 0)
+                            });
+                        }
+                    }
+                });
+            }
+
+            if (nuevosRegistros.length === 0) {
+                alert('No se encontraron registros correspondientes a los módulos 050351, 050353 o 050354 en el texto pegado. Verifica que las columnas coincidan.');
+                return;
+            }
+
+            // Agregar a la base de datos local Descarga_info
+            descargaInfoDB = [...nuevosRegistros, ...descargaInfoDB];
+            localStorage.setItem('descarga_info_db', JSON.stringify(descargaInfoDB));
+            renderizarTablaDescargaInfo();
+
+            document.getElementById('statusPaste').innerText = `¡Proceso exitoso! Se extrajeron y guardaron ${nuevosRegistros.length} registros válidos.`;
+        }
+
+        function limpiarDatos() {
+            document.getElementById('pasteArea').value = '';
+            document.getElementById('statusPaste').innerText = 'Área limpia.';
+        }
+
+        function renderizarTablaDescargaInfo() {
+            const tbody = document.getElementById('descargaInfoTableBody');
+            if (descargaInfoDB.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-slate-400 italic">No hay datos guardados en Descarga_info.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            descargaInfoDB.forEach(reg => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-2 border-r">${reg.entidadTramite}</td>
+                    <td class="p-2 border-r text-center">${reg.distrito}</td>
+                    <td class="p-2 border-r text-center font-bold bg-red-50 text-ineRed">${reg.modulo}</td>
+                    <td class="p-2 border-r">${reg.entidadCpv}</td>
+                    <td class="p-2 border-r text-center font-semibold">${reg.seccion}</td>
+                    <td class="p-2 border-r text-center">${reg.malImpresas}</td>
+                    <td class="p-2 border-r text-center">${reg.duplicadas}</td>
+                    <td class="p-2 border-r text-center">${reg.sobrantes}</td>
+                    <td class="p-2 border-r text-center">${reg.anexasIndividual}</td>
+                    <td class="p-2 border-r text-center">${reg.anexasReimpresion}</td>
+                    <td class="p-2 border-r text-center">${reg.devueltasEntrega}</td>
+                    <td class="p-2 border-r text-center">${reg.retiradasMac}</td>
+                    <td class="p-2 border-r text-center">${reg.devueltasTerceros}</td>
+                    <td class="p-2 border-r text-center">${reg.capturadas}</td>
+                    <td class="p-2 text-center font-bold bg-slate-50">${reg.total}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function exportarDescargaInfo() {
+            if (descargaInfoDB.length === 0) {
+                alert('No hay datos en Descarga_info para exportar.');
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(descargaInfoDB, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "Descarga_info.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+    </script>
+</body>
+</html>
