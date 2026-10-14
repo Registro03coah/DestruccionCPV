@@ -114,7 +114,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.7)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v3.8)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -303,7 +303,7 @@
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
                         <div>
                             <h2 class="text-base font-bold text-slate-800 uppercase">Generador de Etiquetas por Lote (Formato Oficial INE)</h2>
-                            <p class="text-xs text-slate-500">Paquetes exactos de 100 en 100 con partición de secciones y separación por Entidad CPV.</p>
+                            <p class="text-xs text-slate-500">Paquetes exactos de 100 en 100 con partición de secciones y validación estricta de Entidad CPV.</p>
                         </div>
                         <div class="flex space-x-2">
                             <button onclick="abrirModalTablaDepurada()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">
@@ -356,20 +356,19 @@
         function obtenerNombreEntidad(val) {
             if (!val) return "COAHUILA";
             const valStr = String(val).trim().toUpperCase();
-            if (CATALOGO_ENTIDADES[valStr]) return CATALOGO_ENTIDADES[valStr];
+            const valClean = !isNaN(valStr) && valStr !== "" ? String(parseInt(valStr)) : valStr;
+
+            if (CATALOGO_ENTIDADES[valClean]) return CATALOGO_ENTIDADES[valClean];
             for (const [num, nombre] of Object.entries(CATALOGO_ENTIDADES)) {
-                if (nombre === valStr || num === valStr) return nombre;
+                if (nombre === valStr || String(num) === valClean) return nombre;
             }
             return valStr;
         }
 
         function esEntidadLocal(entCpvVal, entidadConfig) {
-            const entCpvStr = String(entCpvVal).trim().toUpperCase();
-            const configStr = String(entidadConfig).trim().toUpperCase();
-            const nombreHomologado = obtenerNombreEntidad(entCpvStr);
-            const nombreConfigHomologado = obtenerNombreEntidad(configStr);
-
-            return nombreHomologado === nombreConfigHomologado || entCpvStr === '5' || entCpvStr === 'COAHUILA';
+            const nombreCpv = obtenerNombreEntidad(entCpvVal);
+            const nombreConfig = obtenerNombreEntidad(entidadConfig);
+            return nombreCpv === nombreConfig || String(entCpvVal).trim() === '5' || String(entCpvVal).trim() === '05';
         }
 
         function generarCuadrosModulos() {
@@ -719,7 +718,7 @@
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
         }
 
-        // GENERACIÓN DE ETIQUETAS POR LOTE (Validando Entidad CPV local vs Otras Entidades)
+        // GENERACIÓN DE ETIQUETAS POR LOTE (Validando Entidad CPV local de forma robusta)
         function generarEtiquetasPorLote() {
             const container = document.getElementById('contenedorEtiquetasLote');
             if (!container) return;
@@ -756,7 +755,7 @@
                     }
                 });
 
-                // Algoritmo de acumulación y partición de bloques de 100 para la entidad local
+                // Algoritmo de acumulación y partición de bloques de 100
                 let paquetesSecciones = [];
                 let currentBatchSections = [];
                 let currentBatchTotal = 0;
