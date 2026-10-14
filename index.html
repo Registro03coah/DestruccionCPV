@@ -51,9 +51,12 @@
                 const loadedData = Object.values(data);
                 window.descargaInfoDB = loadedData;
                 localStorage.setItem('descarga_info_db', JSON.stringify(loadedData));
-                if (typeof actualizarVista === 'function') {
-                    actualizarVista();
-                }
+            } else {
+                window.descargaInfoDB = [];
+                localStorage.removeItem('descarga_info_db');
+            }
+            if (typeof actualizarVista === 'function') {
+                actualizarVista();
             }
         });
     </script>
@@ -99,7 +102,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v2.8)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v2.9)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -253,7 +256,7 @@
                 </div>
             </div>
 
-            <!-- VISTA 2: ETIQUETAS POR LOTE (Diseño exacto INE) -->
+            <!-- VISTA 2: ETIQUETAS POR LOTE -->
             <div id="tabEtiquetasLote" class="space-y-6 hidden">
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3 no-print">
@@ -475,43 +478,39 @@
             });
         }
 
+        // MAPEO EXACTO BASADO EN LA IMAGEN ANEXA (image_83035e.png)
+        // Columnas índices reales por tabulación en Excel:
+        // [0]: Entidad, [3]: Distrito, [4]: Módulo, [5]: Entidad (CPV), [7]: Sección,
+        // [10]: Mal Impresas, [11]: Duplicadas, [14]: Sobrantes, [16]: Anexas Sol. Individual,
+        // [18]: Anexas Sol. Reimpresión, [20]: Devueltas Entrega, [22]: Retiradas MAC,
+        // [24]: Devueltas Terceros, [26]: Capturadas, [28]: Total
         function procesarDatosCrudos(lineas) {
             let nuevosRegistros = [];
             lineas.forEach(linea => {
-                const columnas = linea.split('\t').map(c => c.trim()).filter(c => c !== "");
-                if (columnas.length >= 3) {
-                    let moduloEncontrado = '';
-                    let esModuloValido = false;
+                const cols = linea.split('\t').map(c => c.trim());
+                if (cols.length >= 10) {
+                    const moduloVal = (cols[4] || '').padStart(5, '0');
+                    const modClean = moduloVal.replace(/^0+/, '');
+                    
+                    const esValido = window.modulosPermitidos.some(m => m === moduloVal || m.replace(/^0+/, '') === modClean);
 
-                    columnas.forEach(col => {
-                        const colClean = col.replace(/^0+/, '');
-                        const modValida = window.modulosPermitidos.some(m => m === col || m.replace(/^0+/, '') === colClean);
-                        if (modValida) {
-                            moduloEncontrado = col.padStart(5, '0');
-                            esModuloValido = true;
-                        }
-                    });
-
-                    if (esModuloValido) {
-                        const totalVal = Number(columnas[columnas.length - 1] || 0);
-                        const capturadasVal = Number(columnas[14] || columnas[13] || 0);
-
+                    if (esValido) {
                         const registro = {
-                            entidadTramite: obtenerNombreEntidad(columnas[0] || '5'),
-                            distrito: sesionActualConfig ? sesionActualConfig.distrito : (columnas[1] || '3'),
-                            modulo: moduloEncontrado,
-                            entidadCpv: obtenerNombreEntidad(columnas[3] || columnas[2] || '5'),
-                            seccion: Number(columnas[4] || columnas[3] || 0),
-                            malImpresas: Number(columnas[5] || 0),
-                            duplicadas: Number(columnas[6] || 0),
-                            sobrantes: Number(columnas[7] || 0),
-                            anexasIndividual: Number(columnas[8] || 0),
-                            anexasReimpresion: Number(columnas[9] || 0),
-                            devueltasEntrega: Number(columnas[11] || 0),
-                            retiradasMac: Number(columnas[12] || 0),
-                            devueltasTerceros: Number(columnas[13] || 0),
-                            capturadas: capturadasVal,
-                            total: totalVal
+                            entidadTramite: obtenerNombreEntidad(cols[0] || '5'),
+                            distrito: cols[3] || '3',
+                            modulo: moduloVal,
+                            entidadCpv: obtenerNombreEntidad(cols[5] || '5'),
+                            seccion: Number(cols[7] || 0),
+                            malImpresas: Number(cols[10] || 0),
+                            duplicadas: Number(cols[11] || 0),
+                            sobrantes: Number(cols[14] || 0),
+                            anexasIndividual: Number(cols[16] || 0),
+                            anexasReimpresion: Number(cols[18] || 0),
+                            devueltasEntrega: Number(cols[20] || 0),
+                            retiradasMac: Number(cols[22] || 0),
+                            devueltasTerceros: Number(cols[24] || 0),
+                            capturadas: Number(cols[26] || 0),
+                            total: Number(cols[28] || 0)
                         };
                         nuevosRegistros.push(registro);
                     }
@@ -524,9 +523,9 @@
             const pastedText = document.getElementById('pasteArea').value.trim();
             if (!pastedText) { alert('Por favor, pega la información.'); return; }
             const nuevos = procesarDatosCrudos(pastedText.split('\n'));
-            if (nuevos.length === 0) { alert('No se encontraron registros para los módulos configurados.'); return; }
+            if (nuevos.length === 0) { alert('No se encontraron registros para los módulos configurados con el formato exacto.'); return; }
             guardarEnFirebaseYActualizar(nuevos);
-            document.getElementById('statusPaste').innerText = `¡Se procesaron ${nuevos.length} registros!`;
+            document.getElementById('statusPaste').innerText = `¡Se procesaron ${nuevos.length} registros correctamente!`;
         }
 
         function procesarArchivoExcel() {
@@ -539,7 +538,7 @@
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const textData = XLSX.utils.sheet_to_csv(worksheet, { FS: "\t" });
                 const nuevos = procesarDatosCrudos(textData.split('\n'));
-                if (nuevos.length === 0) { alert('No se encontraron registros válidos en el Excel.'); return; }
+                if (nuevos.length === 0) { alert('No se encontraron registros válidos en el Excel con este formato.'); return; }
                 guardarEnFirebaseYActualizar(nuevos);
                 document.getElementById('statusExcel').innerText = `¡Procesado (${nuevos.length} registros)!`;
             };
@@ -549,9 +548,12 @@
         function guardarEnFirebaseYActualizar(nuevosRegistros) {
             if (window.db && window.firebaseRef && window.firebasePush) {
                 const dbRef = window.firebaseRef(window.db, 'Descarga_info');
-                nuevosRegistros.forEach(reg => window.firebasePush(dbRef, reg));
+                // Borrar anterior en Firebase antes de insertar los nuevos alineados
+                window.firebaseRemove(dbRef).then(() => {
+                    nuevosRegistros.forEach(reg => window.firebasePush(dbRef, reg));
+                });
             } else {
-                window.descargaInfoDB = [...nuevosRegistros, ...window.descargaInfoDB];
+                window.descargaInfoDB = nuevosRegistros;
                 localStorage.setItem('descarga_info_db', JSON.stringify(window.descargaInfoDB));
                 actualizarVista();
             }
@@ -609,7 +611,7 @@
             });
         }
 
-        // GENERACIÓN DE ETIQUETAS BASADA EXACTAMENTE EN LA IMAGEN Y REQUISITOS
+        // GENERACIÓN DE ETIQUETAS POR LOTE
         function generarEtiquetasPorLote() {
             const container = document.getElementById('contenedorEtiquetasLote');
             container.innerHTML = '';
@@ -638,7 +640,6 @@
                     }
                 });
 
-                // Ordenar de menor a mayor sección
                 registrosMismaEntidad.sort((a, b) => Number(a.seccion) - Number(b.seccion));
 
                 let paquetesSecciones = [];
@@ -662,7 +663,6 @@
                     paquetesSecciones.push({ minSec: paqueteActual.minSec, maxSec: paqueteActual.maxSec, totalCreds: paqueteActual.totalCreds });
                 }
 
-                // Generar tarjetas por cada paquete de sección
                 paquetesSecciones.forEach(paq => {
                     const tarjetaHtml = crearHtmlEtiquetaINE({
                         entidad: entidadLocal,
@@ -674,7 +674,6 @@
                     container.appendChild(tarjetaHtml);
                 });
 
-                // Generar tarjeta para Otras Entidades si aplica
                 if (totalOtrasEntidades > 0) {
                     const tarjetaOtrasHtml = crearHtmlEtiquetaINE({
                         entidad: entidadLocal,
@@ -688,7 +687,6 @@
             });
         }
 
-        // Plantilla exacta idéntica al diseño visual del INE (image_81175f.png)
         function crearHtmlEtiquetaINE(info) {
             const wrapper = document.createElement('div');
             wrapper.className = "etiqueta-ine border-2 border-slate-900 p-5 bg-white shadow-sm rounded-md space-y-3 font-sans max-w-sm mx-auto w-full";
