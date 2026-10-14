@@ -6,6 +6,34 @@
     <title>Sistema de Extracción y Filtrado CPV - INE</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librería SheetJS (XLSX) para leer archivos de Excel directamente en el navegador -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Firebase SDK v10 (Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Configuración de Firebase (Sustituye con tus credenciales de tu consola de Firebase)
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "tu-proyecto.firebaseapp.com",
+            databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
+            projectId: "tu-proyecto",
+            storageBucket: "tu-proyecto.appspot.com",
+            messagingSenderId: "TU_MESSAGING_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        window.db = db;
+        window.firebaseRef = ref;
+        window.firebasePush = push;
+        window.firebaseSet = set;
+        window.firebaseOnValue = onValue;
+    </script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -25,7 +53,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex justify-between items-center">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Módulo de Filtrado y Base de Datos Descarga_info</p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Base de Datos Descarga_info</p>
         </div>
         <div class="text-right">
             <span class="bg-ineRed text-xs font-semibold px-3 py-1 rounded-full uppercase">Filtro Módulos: 050351, 050353, 050354</span>
@@ -35,19 +63,66 @@
     <!-- Contenido Principal -->
     <main class="flex-grow container mx-auto px-4 py-6 max-w-7xl space-y-6">
 
-        <!-- Área de Pegado (Ctrl + V) -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-            <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">1. Pegar Datos (Ctrl + V) del Reporte General</h2>
-            <p class="text-xs text-slate-500 mb-3">Pega la información completa del reporte. El sistema ignorará celdas combinadas vacías y filtrará solo los módulos <strong>050351, 050353 y 050354</strong>.</p>
-            <textarea id="pasteArea" rows="5" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-3 text-xs font-mono focus:border-ineRed focus:outline-none bg-slate-50" placeholder="Haz clic aquí y presiona Ctrl + V para pegar la información..."></textarea>
-            <div class="flex justify-between items-center mt-3">
-                <span id="statusPaste" class="text-xs text-slate-500 italic">Esperando datos para procesar...</span>
-                <div class="space-x-2">
-                    <button onclick="limpiarDatos()" class="text-xs text-red-600 hover:underline font-semibold">Limpiar</button>
-                    <button onclick="procesarYFiltrarDatos()" class="bg-ineRed hover:bg-red-800 text-white font-bold py-2 px-4 rounded transition duration-200 shadow text-xs">
-                        Procesar y Filtrar (Descarga_info)
+        <!-- Panel de Entrada: Pegar (Ctrl + V) o Subir Archivo Excel -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Área de Pegado -->
+            <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">1. Pegar Datos (Ctrl + V)</h2>
+                    <p class="text-xs text-slate-500 mb-3">Pega la información copiada del reporte general.</p>
+                    <textarea id="pasteArea" rows="4" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-3 text-xs font-mono focus:border-ineRed focus:outline-none bg-slate-50" placeholder="Haz clic aquí y presiona Ctrl + V..."></textarea>
+                </div>
+                <div class="flex justify-between items-center mt-3">
+                    <span id="statusPaste" class="text-xs text-slate-500 italic">Listo para recibir datos</span>
+                    <button onclick="procesarDatosPegados()" class="bg-ineRed hover:bg-red-800 text-white font-bold py-2 px-4 rounded transition shadow text-xs">
+                        Procesar Pegado
                     </button>
                 </div>
+            </div>
+
+            <!-- Área de Subir Archivo Excel -->
+            <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-700 uppercase mb-2">2. O Subir Archivo de Excel (.xlsx / .xls)</h2>
+                    <p class="text-xs text-slate-500 mb-3">Selecciona tu archivo Excel para extraer y filtrar automáticamente los datos igual que el Ctrl + V.</p>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer border border-slate-300 rounded-lg p-2">
+                </div>
+                <div class="flex justify-between items-center mt-3">
+                    <span id="statusExcel" class="text-xs text-slate-500 italic">Selecciona un archivo</span>
+                    <button onclick="procesarArchivoExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded transition shadow text-xs">
+                        Procesar Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen de Totales por Módulo en Línea (3 Colores Diferentes) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Módulo 050351 (Azul / Indigo) -->
+            <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
+                <div>
+                    <span class="text-xs font-bold text-indigo-600 uppercase">Módulo 050351</span>
+                    <h3 class="text-lg font-extrabold text-indigo-900" id="totalMod51">0 Credenciales</h3>
+                </div>
+                <div class="bg-indigo-200 text-indigo-800 p-3 rounded-lg font-bold text-xs" id="countMod51">0 Registros</div>
+            </div>
+
+            <!-- Módulo 050353 (Verde / Esmeralda) -->
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
+                <div>
+                    <span class="text-xs font-bold text-emerald-600 uppercase">Módulo 050353</span>
+                    <h3 class="text-lg font-extrabold text-emerald-900" id="totalMod53">0 Credenciales</h3>
+                </div>
+                <div class="bg-emerald-200 text-emerald-800 p-3 rounded-lg font-bold text-xs" id="countMod53">0 Registros</div>
+            </div>
+
+            <!-- Módulo 050354 (Rojo / Ambar - INE) -->
+            <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
+                <div>
+                    <span class="text-xs font-bold text-rose-600 uppercase">Módulo 050354</span>
+                    <h3 class="text-lg font-extrabold text-rose-900" id="totalMod54">0 Credenciales</h3>
+                </div>
+                <div class="bg-rose-200 text-rose-800 p-3 rounded-lg font-bold text-xs" id="countMod54">0 Registros</div>
             </div>
         </div>
 
@@ -56,19 +131,20 @@
             <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
                 <div>
                     <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info</h2>
-                    <p class="text-xs text-slate-500">Registros filtrados y ajustados por columnas reales</p>
+                    <p class="text-xs text-slate-500">Registros filtrados y ajustados al orden correcto de columnas</p>
                 </div>
                 <div class="space-x-2">
+                    <button onclick="limpiarBaseDatos()" class="text-xs text-red-600 hover:underline font-semibold">Vaciar Datos</button>
                     <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
-                        Exportar Base de Datos (JSON)
+                        Exportar JSON
                     </button>
                 </div>
             </div>
 
             <!-- Tabla con scroll horizontal -->
-            <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-96">
+            <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-[450px]">
                 <table class="w-full text-xs text-left border-collapse whitespace-nowrap">
-                    <thead class="bg-slate-100 text-slate-700 sticky top-0 border-b">
+                    <thead class="bg-slate-100 text-slate-700 sticky top-0 border-b z-10">
                         <tr>
                             <th class="p-2 border-r">Entidad</th>
                             <th class="p-2 border-r">Distrito</th>
@@ -89,7 +165,7 @@
                     </thead>
                     <tbody id="descargaInfoTableBody" class="divide-y divide-slate-200">
                         <tr>
-                            <td colspan="15" class="p-6 text-center text-slate-400 italic">No hay datos procesados todavía. Pega la información arriba para generar la base de datos.</td>
+                            <td colspan="15" class="p-6 text-center text-slate-400 italic">No hay datos procesados todavía. Pega la información o sube un archivo Excel.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -103,64 +179,54 @@
         Sistema de Control y Filtrado CPV &copy; 2026 — Registro Federal de Electores
     </footer>
 
-    <!-- Lógica JavaScript Mejorada -->
+    <!-- Lógica de Procesamiento y Mapeo Correcto de Columnas -->
     <script>
         let descargaInfoDB = JSON.parse(localStorage.getItem('descarga_info_db')) || [];
-        renderizarTablaDescargaInfo();
+        
+        // Renderizar inicial
+        actualizarVista();
 
-        const MODULOS_OBJETIVO = ['50351', '050351', '50353', '050353', '50354', '050354'];
+        const MODULOS_OBJETIVO = ['50351', '050351', '50353', '050353', '050354', '050354'];
 
-        function procesarYFiltrarDatos() {
-            const pastedText = document.getElementById('pasteArea').value.trim();
-            if (!pastedText) {
-                alert('Por favor, pega la información en el cuadro de texto.');
-                return;
-            }
-
-            const lineas = pastedText.split('\n');
+        function procesarDatosCrudos(lineas) {
             let nuevosRegistros = [];
 
             lineas.forEach(linea => {
-                // Separar por tabulaciones y ELIMINAR celdas vacías o espacios en blanco causados por columnas combinadas
                 const columnas = linea.split('\t').map(c => c.trim()).filter(c => c !== "");
-
                 if (columnas.length >= 3) {
-                    // Buscar si alguno de los valores de la fila coincide con los módulos objetivo
                     let moduloEncontrado = '';
                     let esModuloValido = false;
 
                     columnas.forEach(col => {
                         const colClean = col.replace(/^0+/, '');
                         if (MODULOS_OBJETIVO.includes(col) || MODULOS_OBJETIVO.includes(colClean)) {
-                            moduloEncontrado = col;
+                            moduloEncontrado = col.padStart(5, '0');
                             esModuloValido = true;
                         }
                     });
 
                     if (esModuloValido) {
-                        // Mapeo inteligente secuencial ignorando huecos vacíos
-                        // Como filtramos los vacíos, los datos útiles quedan alineados en orden consecutivo:
-                        // [EntidadTr, ?, ?, Distrito, Módulo, EntidadCpv, Sección, MalImpr, Duplicadas, Sobrantes, AnexasInd, AnexasReimp, DevEntrega, RetiradasMac, DevTerceros, Capturadas, Total]
-                        
-                        // Buscamos los índices numéricos o extraemos por orden lógico
+                        // Corrección de orden de columnas solicitada:
+                        // - Entidad CPV toma el valor de Sección anterior
+                        // - Sección toma el valor de Mal Impresas
+                        // - Mal Impresas, Duplicadas, Sobrantes, etc. corregidas según orden real de celdas
                         const nums = columnas.filter(c => !isNaN(c) && c !== "");
-                        const textVals = columnas.filter(c => isNaN(c) || c === "");
 
                         const registro = {
                             entidadTramite: columnas[0] || 'Coahuila',
                             distrito: columnas[1] || '3',
                             modulo: moduloEncontrado,
-                            entidadCpv: columnas[2] || 'Coahuila',
-                            seccion: columnas[3] || '0',
-                            malImpresas: Number(columnas[4] || 0),
-                            duplicadas: Number(columnas[5] || 0),
-                            sobrantes: Number(columnas[6] || 0),
-                            anexasIndividual: Number(columnas[7] || 0),
-                            anexasReimpresion: Number(columnas[8] || 0),
-                            devueltasEntrega: Number(columnas[9] || 0),
-                            retiradasMac: Number(columnas[10] || 0),
-                            devueltasTerceros: Number(columnas[11] || 0),
-                            capturadas: Number(columnas[12] || 0),
+                            entidadCpv: columnas[3] || columnas[2] || 'Coahuila', // Ajustado
+                            seccion: columnas[4] || columnas[3] || '0',             // Ajustado
+                            malImpresas: Number(columnas[5] || 0),                // Ajustado
+                            duplicadas: Number(columnas[6] || 0),
+                            sobrantes: Number(columnas[7] || 0),
+                            anexasIndividual: Number(columnas[8] || 0),
+                            anexasReimpresion: Number(columnas[9] || 0),
+                            devueltasEntrega: Number(columnas[11] || 0),          // Retiradas MAC movido aquí
+                            retiradasMac: Number(columnas[12] || 0),              // Devueltas Terceros movido aquí
+                            devueltasTerceros: Number(columnas[13] || 0),
+                            capturadas: Number(columnas[14] || 0),
                             total: Number(columnas[columnas.length - 1] || 0)
                         };
 
@@ -169,22 +235,116 @@
                 }
             });
 
-            if (nuevosRegistros.length === 0) {
-                alert('No se encontraron registros para los módulos 050351, 050353 o 050354. Asegúrate de copiar las filas completas desde Excel.');
+            return nuevosRegistros;
+        }
+
+        function procesarDatosPegados() {
+            const pastedText = document.getElementById('pasteArea').value.trim();
+            if (!pastedText) {
+                alert('Por favor, pega la información en el cuadro de texto.');
                 return;
             }
 
-            // Guardar en Descarga_info
-            descargaInfoDB = [...nuevosRegistros, ...descargaInfoDB];
-            localStorage.setItem('descarga_info_db', JSON.stringify(descargaInfoDB));
-            renderizarTablaDescargaInfo();
+            const lineas = pastedText.split('\n');
+            const nuevos = procesarDatosCrudos(lineas);
 
-            document.getElementById('statusPaste').innerText = `¡Proceso exitoso! Se filtraron y guardaron ${nuevosRegistros.length} registros correctos.`;
+            if (nuevos.length === 0) {
+                alert('No se encontraron registros para los módulos 050351, 050353 o 050354.');
+                return;
+            }
+
+            guardarYActualizar(nuevos);
+            document.getElementById('statusPaste').innerText = `¡Se procesaron ${nuevos.length} registros!`;
         }
 
-        function limpiarDatos() {
-            document.getElementById('pasteArea').value = '';
-            document.getElementById('statusPaste').innerText = 'Área limpia.';
+        function procesarArchivoExcel() {
+            const fileInput = document.getElementById('excelFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Por favor, selecciona un archivo Excel primero.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // Leer la primera hoja del Excel
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Convertir a texto tabulado para reutilizar el mismo motor de extracción
+                const textData = XLSX.utils.sheet_to_csv(worksheet, { FS: "\t" });
+                const lineas = textData.split('\n');
+                
+                const nuevos = procesarDatosCrudos(lineas);
+
+                if (nuevos.length === 0) {
+                    alert('No se encontraron registros válidos para los módulos requeridos en este archivo Excel.');
+                    return;
+                }
+
+                guardarYActualizar(nuevos);
+                document.getElementById('statusExcel').innerText = `¡Archivo procesado con éxito (${nuevos.length} registros)!`;
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function guardarYActualizar(nuevosRegistros) {
+            descargaInfoDB = [...nuevosRegistros, ...descargaInfoDB];
+            localStorage.setItem('descarga_info_db', JSON.stringify(descargaInfoDB));
+
+            // Si Firebase está disponible, también guardamos en la nube
+            if (window.db && window.firebaseRef && window.firebasePush) {
+                try {
+                    const dbRef = window.firebaseRef(window.db, 'Descarga_info');
+                    nuevosRegistros.forEach(reg => {
+                        window.firebasePush(dbRef, reg);
+                    });
+                } catch (err) {
+                    console.log("Firebase sync note: Configura tus credenciales reales para sincronizar en la nube.");
+                }
+            }
+
+            actualizarVista();
+        }
+
+        function limpiarBaseDatos() {
+            if (confirm('¿Deseas vaciar todos los registros de la base de datos?')) {
+                descargaInfoDB = [];
+                localStorage.removeItem('descarga_info_db');
+                actualizarVista();
+            }
+        }
+
+        function actualizarVista() {
+            renderizarTablaDescargaInfo();
+            calcularTotalesModulos();
+        }
+
+        function calcularTotalesModulos() {
+            let t51 = 0, c51 = 0;
+            let t53 = 0, c53 = 0;
+            let t54 = 0, c54 = 0;
+
+            descargaInfoDB.forEach(reg => {
+                const mod = String(reg.modulo).replace(/^0+/, '');
+                const tot = Number(reg.total) || 0;
+
+                if (mod === '50351') { t51 += tot; c51++; }
+                else if (mod === '50353') { t53 += tot; c53++; }
+                else if (mod === '50354') { t54 += tot; c54++; }
+            });
+
+            document.getElementById('totalMod51').innerText = `${t51.toLocaleString()} Credenciales`;
+            document.getElementById('countMod51').innerText = `${c51} Registros`;
+
+            document.getElementById('totalMod53').innerText = `${t53.toLocaleString()} Credenciales`;
+            document.getElementById('countMod53').innerText = `${c53} Registros`;
+
+            document.getElementById('totalMod54').innerText = `${t54.toLocaleString()} Credenciales`;
+            document.getElementById('countMod54').innerText = `${c54} Registros`;
         }
 
         function renderizarTablaDescargaInfo() {
@@ -208,8 +368,8 @@
                     <td class="p-2 border-r text-center">${reg.sobrantes}</td>
                     <td class="p-2 border-r text-center">${reg.anexasIndividual}</td>
                     <td class="p-2 border-r text-center">${reg.anexasReimpresion}</td>
-                    <td class="p-2 border-r text-center">${reg.devueltasEntrega}</td>
-                    <td class="p-2 border-r text-center">${reg.retiradasMac}</td>
+                    <td class="p-2 border-r text-center font-semibold text-emerald-700">${reg.devueltasEntrega}</td>
+                    <td class="p-2 border-r text-center font-semibold text-indigo-700">${reg.retiradasMac}</td>
                     <td class="p-2 border-r text-center">${reg.devueltasTerceros}</td>
                     <td class="p-2 border-r text-center">${reg.capturadas}</td>
                     <td class="p-2 text-center font-bold bg-slate-50">${reg.total}</td>
@@ -220,7 +380,7 @@
 
         function exportarDescargaInfo() {
             if (descargaInfoDB.length === 0) {
-                alert('No hay datos en Descarga_info para exportar.');
+                alert('No hay datos para exportar.');
                 return;
             }
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(descargaInfoDB, null, 2));
