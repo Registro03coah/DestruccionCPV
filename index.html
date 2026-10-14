@@ -80,15 +80,32 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v2.6)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v2.7)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
             <span id="badgeOperador" class="bg-ineRed text-xs font-semibold px-3 py-1 rounded-full uppercase hidden">Operador: <span id="lblOpName"></span></span>
             <button onclick="liberarSesion()" id="btnLiberar" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 px-3 rounded transition hidden">Cerrar Sesión</button>
-            <button onclick="borradoTotalAdmin()" class="bg-red-900 hover:bg-black text-rose-200 text-xs font-bold py-1.5 px-3 rounded transition border border-rose-700" title="Borrado Total Administrador">🗑️ Borrado Total</button>
+            <button onclick="solicitarBorradoAdmin()" class="bg-red-900 hover:bg-black text-rose-200 text-xs font-bold py-1.5 px-3 rounded transition border border-rose-700" title="Acceso exclusivo Administrador">🛡️ Borrado Total (Admin)</button>
         </div>
     </header>
+
+    <!-- MODAL DE CONTRASEÑA ADMIN (Oculta con puntitos) -->
+    <div id="adminModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl border border-slate-300 space-y-4">
+            <div class="text-center">
+                <h3 class="text-base font-bold text-slate-800">Autenticación de Administrador</h3>
+                <p class="text-xs text-slate-500 mt-1">Ingresa la contraseña de administrador para realizar el borrado total.</p>
+            </div>
+            <div>
+                <input type="password" id="adminPasswordInput" placeholder="Contraseña secreta" class="w-full border border-slate-300 rounded p-2.5 text-xs text-center font-mono tracking-widest focus:ring-2 focus:ring-ineRed focus:outline-none">
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="cerrarModalAdmin()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded text-xs transition">Cancelar</button>
+                <button onclick="verificarContraseñaAdmin()" class="w-1/2 bg-ineRed hover:bg-red-800 text-white font-bold py-2 rounded text-xs transition">Confirmar</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Contenido Principal -->
     <main class="flex-grow container mx-auto px-4 py-6 max-w-7xl space-y-6">
@@ -131,7 +148,7 @@
             </div>
         </section>
 
-        <!-- PASO 2: MENÚ DE NAVEGACIÓN Y ÁREA DE TRABAJO (Oculto hasta configurar) -->
+        <!-- PASO 2: MENÚ DE NAVEGACIÓN Y ÁREA DE TRABAJO -->
         <div id="workSection" class="space-y-6 hidden">
 
             <!-- Barra de Opciones / Botones de Navegación -->
@@ -146,7 +163,6 @@
 
             <!-- VISTA 1: METER DATOS -->
             <div id="tabMeterDatos" class="space-y-6">
-                <!-- Panel de Entrada: Pegar o Subir Excel -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col justify-between">
                         <div>
@@ -177,10 +193,8 @@
                     </div>
                 </div>
 
-                <!-- Totales por Módulo en Línea -->
                 <div id="totalesModulosGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
 
-                <!-- Tabla Descarga_info -->
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
                     <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
                         <div>
@@ -270,7 +284,6 @@
             { bg: 'bg-amber-50', border: 'border-amber-200', textTitle: 'text-amber-600', textVal: 'text-amber-900', badgeBg: 'bg-amber-200', badgeText: 'text-amber-800' }
         ];
 
-        // Catálogo completo INE (Número y Nombre Bidireccional)
         const CATALOGO_ENTIDADES = {
             1: "AGUASCALIENTES", 2: "BAJA CALIFORNIA", 3: "BAJA CALIFORNIA SUR", 4: "CAMPECHE", 5: "COAHUILA",
             6: "COLIMA", 7: "CHIAPAS", 8: "CHIHUAHUA", 9: "CIUDAD DE MEXICO", 10: "DURANGO", 11: "GUANAJUATO",
@@ -280,20 +293,14 @@
             30: "VERACRUZ", 31: "YUCATAN", 32: "ZACATECAS"
         };
 
-        // Función para normalizar y obtener el nombre de la entidad tanto por número como por nombre
         function obtenerNombreEntidad(val) {
             if (!val) return "COAHUILA";
             const valStr = String(val).trim().toUpperCase();
-            if (CATALOGO_ENTIDADES[valStr]) {
-                return CATALOGO_ENTIDADES[valStr];
-            }
-            // Buscar si coincide con algún nombre exacto
+            if (CATALOGO_ENTIDADES[valStr]) return CATALOGO_ENTIDADES[valStr];
             for (const [num, nombre] of Object.entries(CATALOGO_ENTIDADES)) {
-                if (nombre === valStr || num === valStr) {
-                    return nombre;
-                }
+                if (nombre === valStr || num === valStr) return nombre;
             }
-            return valStr; // Si no está en catálogo, retorna el valor escrito
+            return valStr;
         }
 
         function generarCuadrosModulos() {
@@ -340,7 +347,7 @@
             }
 
             const entidadNombre = obtenerNombreEntidad(entidadInput);
-            const configData = { entidad: entidadNombre, entidadInputOriginal: entidadInput, distrito, operador, modulos, timestamp: Date.now() };
+            const configData = { entidad: entidadNombre, distrito, operador, modulos, timestamp: Date.now() };
 
             if (window.db && window.firebaseRef && window.firebaseSet) {
                 window.firebaseSet(window.firebaseRef(window.db, 'datosentidad'), configData)
@@ -355,10 +362,14 @@
             sesionActualConfig = data;
             window.modulosPermitidos = data.modulos.map(m => String(m).trim());
 
-            document.getElementById('lblOpName').innerText = data.operador;
+            // Identificador visual: Si el operador eres tú u otro usuario
+            const esAdmin = data.operador.toLowerCase().includes('mario') || data.operador.toLowerCase().includes('carrivers') || data.operador.toLowerCase().includes('admin');
+            const etiquetaRol = esAdmin ? `${data.operador} [ADMINISTRADOR]` : data.operador;
+
+            document.getElementById('lblOpName').innerText = etiquetaRol;
             document.getElementById('badgeOperador').classList.remove('hidden');
             document.getElementById('btnLiberar').classList.remove('hidden');
-            document.getElementById('infoSesionDistrito').innerText = `Entidad: ${data.entidad} | Distrito: ${data.distrito} | Operador: ${data.operador}`;
+            document.getElementById('infoSesionDistrito').innerText = `Entidad: ${data.entidad} | Distrito: ${data.distrito} | Operador: ${etiquetaRol}`;
 
             document.getElementById('configSection').classList.add('hidden');
             document.getElementById('workSection').classList.remove('hidden');
@@ -383,9 +394,21 @@
             }
         }
 
-        function borradoTotalAdmin() {
-            const pass = prompt('Contraseña de Administrador requerida para Borrado Total:');
+        // Control del Modal de Contraseña de Administrador (Oculta con asteriscos)
+        function solicitarBorradoAdmin() {
+            document.getElementById('adminPasswordInput').value = '';
+            document.getElementById('adminModal').classList.remove('hidden');
+            document.getElementById('adminPasswordInput').focus();
+        }
+
+        function cerrarModalAdmin() {
+            document.getElementById('adminModal').classList.add('hidden');
+        }
+
+        function verificarContraseñaAdmin() {
+            const pass = document.getElementById('adminPasswordInput').value;
             if (pass === 'charro') {
+                cerrarModalAdmin();
                 if (window.db && window.firebaseRef && window.firebaseRemove) {
                     window.firebaseRemove(window.firebaseRef(window.db, 'datosentidad'));
                     window.firebaseRemove(window.firebaseRef(window.db, 'Descarga_info'));
@@ -393,8 +416,9 @@
                 localStorage.clear();
                 alert('¡Borrado total exitoso! Las bases de datos se han reiniciado a cero.');
                 location.reload();
-            } else if (pass !== null) {
+            } else {
                 alert('Contraseña incorrecta.');
+                document.getElementById('adminPasswordInput').value = '';
             }
         }
 
@@ -403,8 +427,7 @@
                 document.getElementById(id).classList.add('hidden');
             });
             ['btnTabMeter', 'btnTabLote', 'btnTabPaquete'].forEach(id => {
-                const btn = document.getElementById(id);
-                btn.className = "bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-4 rounded transition";
+                document.getElementById(id).className = "bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-4 rounded transition";
             });
 
             document.getElementById(tabId).classList.remove('hidden');
@@ -570,13 +593,12 @@
             });
         }
 
-        // LÓGICA DE GENERACIÓN DE ETIQUETAS POR LOTE
         function generarEtiquetasPorLote() {
             const container = document.getElementById('contenedorEtiquetasLote');
             container.innerHTML = '';
 
             if (!window.descargaInfoDB || window.descargaInfoDB.length === 0 || !sesionActualConfig) {
-                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-2">No hay datos suficientes para generar etiquetas. Asegúrate de procesar datos en la pestaña "Meter Datos".</div>`;
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-2">No hay datos suficientes para generar etiquetas.</div>`;
                 return;
             }
 
