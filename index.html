@@ -94,37 +94,38 @@
             width: 100% !important;
         }
 
-        /* Botón Flotante Superior Derecho perfectamente alineado al centro de la barra negra */
+        /* Botón Flotante Superior CENTRADO exactamente en la barra negra */
         .btn-regresar-menu-top {
             position: fixed;
-            top: 8px;
-            right: 20px;
-            height: 44px;
+            top: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 38px;
             background: #ffffff;
             color: #1e293b;
-            padding: 4px 14px 4px 4px;
+            padding: 3px 12px 3px 3px;
             border-radius: 35px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             text-decoration: none;
             font-family: 'Poppins', sans-serif;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 700;
             border: 2px solid #b91c1c;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
             z-index: 99999;
             transition: all 0.4s ease;
-            max-width: 50px;
+            max-width: 44px;
             overflow: hidden;
             white-space: nowrap;
         }
 
         .btn-regresar-menu-top img {
-            width: 36px !important;
-            height: 36px !important;
-            min-width: 36px !important;
-            min-height: 36px !important;
+            width: 30px !important;
+            height: 30px !important;
+            min-width: 30px !important;
+            min-height: 30px !important;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid #b91c1c;
@@ -138,7 +139,7 @@
         }
 
         .btn-regresar-menu-top:hover {
-            max-width: 180px;
+            max-width: 160px;
             background: #b91c1c;
             color: #ffffff;
             box-shadow: 0 6px 20px rgba(185, 28, 28, 0.6);
@@ -202,7 +203,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between pt-16">
 
-    <!-- Botón Flotante Superior Derecho con la foto intacta y animación -->
+    <!-- Botón Flotante Superior Centrado -->
     <a href="#" onclick="confirmarSalidaMenu(event)" class="btn-regresar-menu-top no-print" title="Menú Principal">
         <img src="mayito admin.jpeg" alt="Mayito Admin" onerror="this.src='https://via.placeholder.com/40'">
         <span>Menú Principal</span>
@@ -215,7 +216,7 @@
             <span id="semaforoConexiones" onclick="dispararAccesoAdmin()" class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer hover:scale-125 transition" title="Haz clic aquí para ingresar como Administrador"></span>
             <div>
                 <h1 class="text-sm font-bold tracking-wide leading-tight">INSTITUTO NACIONAL ELECTORAL</h1>
-                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.3)</span></p>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.4)</span></p>
             </div>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-1.5">
@@ -503,7 +504,7 @@
         window.descargaInfoDB = [];
         window.modulosPermitidos = [];
         let sesionActualConfig = null;
-        let esAdministradorActivo = false;
+        let esAdministradorActivo = localStorage.getItem('admin_activo_ine') === 'true';
 
         const CATALOGO_ENTIDADES = {
             1: "AGUASCALIENTES", 2: "BAJA CALIFORNIA", 3: "BAJA CALIFORNIA SUR", 4: "CAMPECHE", 5: "COAHUILA",
@@ -531,6 +532,17 @@
             const nombreConfig = obtenerNombreEntidad(entidadConfig);
             return nombreCpv === nombreConfig || String(entCpvVal).trim() === '5' || String(entCpvVal).trim() === '05';
         }
+
+        // Recuperar configuración guardada automáticamente si ya era Admin
+        window.addEventListener('DOMContentLoaded', () => {
+            const configGuardada = localStorage.getItem('admin_config_ine');
+            if (esAdministradorActivo && configGuardada) {
+                try {
+                    const cfg = JSON.parse(configGuardada);
+                    aplicarConfiguracionLocal(cfg);
+                } catch(e) {}
+            }
+        });
 
         // Sincronizar sesiones concurrentes
         if (window.db && window.firebaseRef && window.firebaseOnValue) {
@@ -601,43 +613,27 @@
                 return;
             }
 
-            // Validar límite de 5 operadores simultáneos (Si no es Admin)
-            if (window.db && window.firebaseRef && window.firebaseGet && window.firebaseSet) {
-                const sesionesRef = window.firebaseRef(window.db, 'sesiones_activas');
-                const snapshot = await window.firebaseGet(sesionesRef);
-                const sesiones = snapshot.val() || {};
-                
-                let countOtros = 0;
-                Object.keys(sesiones).forEach(id => {
-                    if (id !== window.sesionId && !sesiones[id].config?.isAdmin) {
-                        countOtros++;
-                    }
-                });
+            const entidadNombre = obtenerNombreEntidad(entidadInput);
+            const fechaHoraEntrada = new Date().toLocaleString();
+            const configData = { 
+                entidad: entidadNombre, 
+                distrito, 
+                operador, 
+                modulosData, 
+                timestamp: Date.now(), 
+                entrada: fechaHoraEntrada,
+                isAdmin: esAdministradorActivo
+            };
 
-                if (!esAdministradorActivo && !sesiones[window.sesionId] && countOtros >= 5) {
-                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos).');
-                    return;
-                }
-
-                const entidadNombre = obtenerNombreEntidad(entidadInput);
-                const fechaHoraEntrada = new Date().toLocaleString();
-                const configData = { 
-                    entidad: entidadNombre, 
-                    distrito, 
-                    operador, 
-                    modulosData, 
-                    timestamp: Date.now(), 
-                    entrada: fechaHoraEntrada,
-                    isAdmin: esAdministradorActivo
-                };
-
-                await window.firebaseSet(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/config`), configData);
-                aplicarConfiguracionLocal(configData);
-            } else {
-                const entidadNombre = obtenerNombreEntidad(entidadInput);
-                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now(), entrada: new Date().toLocaleString(), isAdmin: esAdministradorActivo };
-                aplicarConfiguracionLocal(configData);
+            if (esAdministradorActivo) {
+                localStorage.setItem('admin_config_ine', JSON.stringify(configData));
             }
+
+            if (window.db && window.firebaseRef && window.firebaseSet) {
+                await window.firebaseSet(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/config`), configData);
+            }
+
+            aplicarConfiguracionLocal(configData);
         }
 
         function aplicarConfiguracionLocal(data) {
@@ -670,7 +666,7 @@
                 const data = snapshot.val();
                 if (data) {
                     window.descargaInfoDB = Object.values(data);
-                } else {
+                } else if (!esAdministradorActivo) {
                     window.descargaInfoDB = [];
                 }
                 actualizarVista();
@@ -701,7 +697,7 @@
 
         function liberarSesion() {
             if (esAdministradorActivo) {
-                const seguro = confirm('👑 Sesión de Administrador detectada.\n\nTus datos de administrador están protegidos y no se borrarán. ¿Deseas salir al Menú Principal?');
+                const seguro = confirm('👑 Sesión de Administrador detectada.\n\nTus datos de administrador están protegidos y no se borrarán. ¿Deseas regresar al Menú Principal?');
                 if (seguro) {
                     window.location.href = "https://registro03coah.github.io/mimenu/index.html";
                 }
@@ -722,7 +718,6 @@
                         window.location.href = "https://registro03coah.github.io/mimenu/index.html";
                     });
             } else {
-                localStorage.removeItem('sesion_id_operador');
                 window.location.href = "https://registro03coah.github.io/mimenu/index.html";
             }
         }
@@ -744,15 +739,19 @@
             const pass = document.getElementById('adminPasswordInput').value;
             if (pass === 'charro') {
                 esAdministradorActivo = true;
+                localStorage.setItem('admin_activo_ine', 'true');
+
                 if (sesionActualConfig) {
                     sesionActualConfig.isAdmin = true;
+                    localStorage.setItem('admin_config_ine', JSON.stringify(sesionActualConfig));
                     if (window.db && window.firebaseRef && window.firebaseSet) {
                         window.firebaseSet(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/config`), sesionActualConfig);
                     }
                 }
+
                 document.getElementById('adminPasswordBox').classList.add('hidden');
                 document.getElementById('adminContentPanel').classList.remove('hidden');
-                alert('¡Acceso de Administrador concedido con éxito! Tus datos e historial están protegidos.');
+                alert('¡Acceso de Administrador concedido con éxito! Tus datos e historial están protegidos de forma permanente.');
             } else {
                 alert('Contraseña incorrecta.');
                 document.getElementById('adminPasswordInput').value = '';
@@ -788,6 +787,7 @@
                 if (window.db && window.firebaseRef && window.firebaseRemove) {
                     await window.firebaseRemove(window.firebaseRef(window.db, 'sesiones_activas'));
                 }
+                localStorage.removeItem('admin_config_ine');
                 alert('¡Borrado total exitoso!');
                 location.reload();
             } else if (pass !== null) {
@@ -945,6 +945,11 @@
         }
 
         function guardarDatosOperadorFirebase(nuevosRegistros) {
+            if (esAdministradorActivo) {
+                window.descargaInfoDB = nuevosRegistros;
+                localStorage.setItem('admin_datos_ine', JSON.stringify(nuevosRegistros));
+            }
+
             if (window.db && window.firebaseRef && window.firebaseSet) {
                 const dbRef = window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/datos`);
                 window.firebaseRemove(dbRef).then(() => {
@@ -955,6 +960,16 @@
             } else {
                 window.descargaInfoDB = nuevosRegistros;
                 actualizarVista();
+            }
+        }
+
+        // Cargar datos guardados del admin al iniciar
+        if (esAdministradorActivo) {
+            const datosGuardadosAdmin = localStorage.getItem('admin_datos_ine');
+            if (datosGuardadosAdmin) {
+                try {
+                    window.descargaInfoDB = JSON.parse(datosGuardadosAdmin);
+                } catch(e) {}
             }
         }
 
