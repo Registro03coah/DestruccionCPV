@@ -208,7 +208,7 @@
             <span id="semaforoConexiones" onclick="dispararAccesoAdmin()" class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer hover:scale-125 transition" title="Haz clic aquí para ingresar como Administrador"></span>
             <div>
                 <h1 class="text-sm font-bold tracking-wide leading-tight">INSTITUTO NACIONAL ELECTORAL</h1>
-                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.0)</span></p>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.1)</span></p>
             </div>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-1.5">
@@ -387,7 +387,7 @@
                     </div>
                 </div>
 
-                <!-- 3 RECTÁNGULOS DE MÓDULOS CON DETALLE DE CREDENCIALES, RETIROS Y OTRAS ENTIDADES -->
+                <!-- 3 RECTÁNGULOS DE MÓDULOS CON TÍTULO DEvEnt (Devueltas a Entrega), Retiros y Otras Entidades -->
                 <div id="totalesModulosGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
 
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
@@ -673,14 +673,14 @@
 
         function confirmarSalidaMenu(e) {
             e.preventDefault();
-            const seguro = confirm("⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de regresar al Menú Principal? Tu sesión y avance temporal serán borrados para dejar el sistema listo para otro compañero.");
+            const seguro = confirm("⚠️ ¡Aviso Importante!\n\n¿Estás seguro de regresar al Menú Principal? Tu sesión y avance temporal serán borrados para dejar el sistema listo para otro compañero.");
             if (seguro) {
                 liberarSesionDirecto();
             }
         }
 
         function liberarSesion() {
-            const seguro = confirm('⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de cerrar sesión? Tu avance y datos temporales serán borrados para dejar el sistema listo para el siguiente usuario de los 5 permitidos.');
+            const seguro = confirm('⚠️ ¡Aviso Importante!\n\n¿Estás seguro de cerrar sesión? Tu avance y datos temporales serán borrados para dejar el sistema listo para el siguiente usuario de los 5 permitidos.');
             if (seguro) {
                 liberarSesionDirecto();
             }
@@ -786,17 +786,19 @@
             const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
 
             window.modulosPermitidos.forEach((mod, idx) => {
-                let totalCred = 0, totalRetiros = 0, totalOtras = 0, countReg = 0;
+                let totalDevEnt = 0, totalRetiros = 0, totalOtras = 0, countReg = 0;
 
                 window.descargaInfoDB.forEach(reg => {
                     if (String(reg.modulo).replace(/^0+/, '') === String(mod).replace(/^0+/, '')) {
-                        const creds = Number(reg.devueltasEntrega || reg.total) || 0;
+                        const devEnt = Number(reg.devueltasEntrega || 0);
                         const retiros = Number(reg.retiradasMac || 0);
-                        totalCred += creds;
+                        const totalReg = Number(reg.total || 0);
+
+                        totalDevEnt += devEnt;
                         totalRetiros += retiros;
 
                         if (!esEntidadLocal(reg.entidadCpv, entidadLocal)) {
-                            totalOtras += creds;
+                            totalOtras += totalReg;
                         }
                         countReg++;
                     }
@@ -817,8 +819,8 @@
                     </div>
                     <div class="grid grid-cols-3 gap-1 text-center font-mono">
                         <div class="bg-white/85 p-1.5 rounded border border-slate-200">
-                            <span class="block text-[9px] text-slate-500 font-bold uppercase">Credenciales</span>
-                            <span class="text-xs font-black ${color.textVal}">${totalCred.toLocaleString()}</span>
+                            <span class="block text-[9px] text-slate-500 font-bold uppercase">DevEnt</span>
+                            <span class="text-xs font-black ${color.textVal}">${totalDevEnt.toLocaleString()}</span>
                         </div>
                         <div class="bg-white/85 p-1.5 rounded border border-slate-200">
                             <span class="block text-[9px] text-slate-500 font-bold uppercase">Retiros</span>
