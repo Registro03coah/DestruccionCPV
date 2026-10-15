@@ -39,11 +39,22 @@
         onValue(ref(db, 'sesiones_activas'), (snapshot) => {
             const data = snapshot.val() || {};
             const keys = Object.keys(data);
+            const semaforoEl = document.getElementById('semaforoConexiones');
             const contadorEl = document.getElementById('contadorConectados');
-            if (contadorEl) {
+            
+            if (semaforoEl && contadorEl) {
                 contadorEl.innerText = `${keys.length}/5 Conectados`;
-                contadorEl.className = keys.length >= 5 ? "text-xs font-bold px-2.5 py-1 rounded-full bg-red-600 text-white font-mono" : "text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white font-mono";
+                if (keys.length >= 5) {
+                    semaforoEl.className = "w-3.5 h-3.5 rounded-full bg-red-500 inline-block shadow-[0_0_10px_#ef4444] cursor-pointer animate-pulse";
+                    semaforoEl.title = "Sistema Lleno (Clic aquí para acceso Admin)";
+                } else {
+                    semaforoEl.className = "w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer";
+                    semaforoEl.title = "Sistema Disponible (Clic aquí para acceso Admin)";
+                }
             }
+            
+            actualizarLogsAdmin(data);
+
             if (typeof window.actualizarSesionesGlobales === 'function') {
                 window.actualizarSesionesGlobales(data);
             }
@@ -76,18 +87,19 @@
             width: 100% !important;
         }
 
-        /* Botón Flotante Superior Derecho con Imagen Circular y Expansión */
+        /* Botón Flotante Superior Derecho perfectamente alineado al centro de la barra negra */
         .btn-regresar-menu-top {
             position: fixed;
-            top: 12px;
+            top: 8px;
             right: 20px;
+            height: 44px;
             background: #ffffff;
             color: #1e293b;
-            padding: 4px 12px 4px 4px;
+            padding: 4px 14px 4px 4px;
             border-radius: 35px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             text-decoration: none;
             font-family: 'Poppins', sans-serif;
             font-size: 0.8rem;
@@ -96,18 +108,21 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
             z-index: 99999;
             transition: all 0.4s ease;
-            max-width: 48px;
+            max-width: 50px;
             overflow: hidden;
             white-space: nowrap;
         }
 
         .btn-regresar-menu-top img {
-            width: 36px;
-            height: 36px;
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px !important;
+            min-height: 36px !important;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid #b91c1c;
             flex-shrink: 0;
+            display: block;
         }
 
         .btn-regresar-menu-top span {
@@ -180,40 +195,40 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between pt-16">
 
-    <!-- Botón Flotante Superior Derecho con Imagen Circular y Animación -->
+    <!-- Botón Flotante Superior Derecho con la foto intacta y animación -->
     <a href="#" onclick="confirmarSalidaMenu(event)" class="btn-regresar-menu-top no-print" title="Menú Principal">
         <img src="mayito admin.jpeg" alt="Mayito Admin" onerror="this.src='https://via.placeholder.com/40'">
         <span>Menú Principal</span>
     </a>
 
-    <!-- Header Fijo (Sticky) -->
-    <header class="bg-ineDark text-white shadow-md py-3 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print fixed top-0 left-0 right-0 z-50">
-        <div class="flex items-center space-x-2.5">
-            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-[0_0_8px_#10b981]" title="Conectado"></span>
+    <!-- Header Fijo (Sticky) perfectamente alineado -->
+    <header class="bg-ineDark text-white shadow-md py-2.5 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print fixed top-0 left-0 right-0 z-50">
+        <div class="flex items-center space-x-3">
+            <!-- Semáforo clickeable para activar acceso Administrador -->
+            <span id="semaforoConexiones" onclick="dispararAccesoAdmin()" class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer hover:scale-125 transition" title="Haz clic aquí para ingresar como Administrador"></span>
             <div>
-                <h1 class="text-base font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-1">(v4.9)</span></p>
+                <h1 class="text-sm font-bold tracking-wide leading-tight">INSTITUTO NACIONAL ELECTORAL</h1>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.0)</span></p>
             </div>
         </div>
-        <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+        <div class="flex items-center space-x-3 flex-wrap gap-y-1.5">
             <span id="contadorConectados" class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white font-mono">0/5 Conectados</span>
             <button onclick="abrirConfiguracion()" id="badgeOperador" class="bg-ineRed hover:bg-red-800 text-xs font-semibold px-3 py-1.5 rounded-full uppercase transition shadow hidden flex items-center space-x-1.5 cursor-pointer" title="Hacer clic para editar configuración">
                 <i class="fas.fa-user-gear"></i><span>Operador: <span id="lblOpName"></span></span>
             </button>
             <button onclick="liberarSesion()" id="btnLiberar" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 px-3 rounded transition hidden">Cerrar Sesión</button>
-            <button onclick="abrirModalAdmin()" id="btnAdminPanel" class="bg-indigo-900 hover:bg-black text-indigo-200 text-xs font-bold py-1.5 px-3 rounded transition border border-indigo-700 hidden">🛡️ Panel Admin</button>
         </div>
     </header>
 
-    <!-- MODAL DE CONTRASEÑA / PANEL ADMIN -->
+    <!-- MODAL DE CONTRASEÑA / PANEL ADMIN (ACCESO POR SEMÁFORO) -->
     <div id="adminModal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-xl p-6 max-w-lg w-full shadow-2xl border border-slate-300 space-y-4 max-h-[90vh] flex flex-col">
             <div class="text-center border-b pb-3">
                 <div class="flex justify-center mb-2">
-                    <img src="mayito admin.jpeg" class="w-12 h-12 rounded-full border-2 border-ineRed object-cover" alt="Admin">
+                    <img src="mayito admin.jpeg" class="w-14 h-14 rounded-full border-2 border-ineRed object-cover shadow" alt="Admin">
                 </div>
                 <h3 class="text-base font-bold text-slate-800">Panel de Administración General</h3>
-                <p class="text-xs text-slate-500">Ingresa la contraseña para acceder a los controles de Admin y Auditoría.</p>
+                <p class="text-xs text-slate-500">Ingresa la contraseña de administrador para desbloquear el panel.</p>
             </div>
             
             <div id="adminPasswordBox" class="space-y-3">
@@ -224,11 +239,11 @@
                 </div>
             </div>
 
-            <!-- CONTENIDO EXCLUSIVO ADMIN (OCULTO HASTA AUTENTICARSE) -->
+            <!-- CONTENIDO EXCLUSIVO ADMIN -->
             <div id="adminContentPanel" class="space-y-4 hidden flex-grow overflow-y-auto">
                 <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs space-y-1">
                     <p class="font-bold text-amber-800">👑 Acceso de Administrador Autorizado (Mayito Cárdenas)</p>
-                    <p class="text-slate-600">Tienes super-acceso ilimitado para inspeccionar sesiones activas y realizar borrados globales.</p>
+                    <p class="text-slate-600">Tus datos de administrador están seguros y protegidos. Aquí puedes supervisar las sesiones activas.</p>
                 </div>
 
                 <div>
@@ -285,7 +300,7 @@
             <img src="mayito admin.jpeg" alt="Mayito Admin" class="w-14 h-14 rounded-full border-2 border-ineRed object-cover flex-shrink-0 shadow-md">
             <div class="space-y-0.5 text-xs text-slate-700 flex-grow">
                 <p class="font-black text-amber-900 uppercase tracking-wide">¡Aviso Importante del Sistema! ⚠️</p>
-                <p>Esta página es de <strong>uso temporal</strong>. Los avances y la información cargada no se guardan de forma permanente en servidores públicos; cuando cierres tu sesión o la ventana, tu espacio de trabajo se liberará automáticamente para otro de los 5 usuarios permitidos. ¡Trabaja con confianza y éxito! — <em>Atentamente, Admin Mayito Cárdenas</em></p>
+                <p>Esta página es de <strong>uso temporal</strong>. Los avances y la información cargada no se guardan de forma permanente; cuando cierres tu sesión o la ventana, tu espacio se liberará automáticamente para otro compañero de los 5 permitidos. ¡Trabaja con éxito! — <em>Atentamente, Admin Mayito Cárdenas</em></p>
             </div>
             <button onclick="document.getElementById('comicBanner').style.display='none'" class="text-slate-400 hover:text-slate-600 font-bold px-2">✕</button>
         </div>
@@ -481,7 +496,7 @@
         window.descargaInfoDB = [];
         window.modulosPermitidos = [];
         let sesionActualConfig = null;
-        let sesionesGlobalesCache = {};
+        let sesionsGlobalesCache = {};
 
         const CATALOGO_ENTIDADES = {
             1: "AGUASCALIENTES", 2: "BAJA CALIFORNIA", 3: "BAJA CALIFORNIA SUR", 4: "CAMPECHE", 5: "COAHUILA",
@@ -510,19 +525,11 @@
             return nombreCpv === nombreConfig || String(entCpvVal).trim() === '5' || String(entCpvVal).trim() === '05';
         }
 
-        // Sincronizar sesiones concurrentes (Máximo 5) y logs de auditoría en tiempo real
+        // Sincronizar sesiones concurrentes (Máximo 5)
         if (window.db && window.firebaseRef && window.firebaseOnValue) {
             window.firebaseOnValue(window.firebaseRef(window.db, 'sesiones_activas'), (snapshot) => {
                 const data = snapshot.val() || {};
                 sesionsGlobalesCache = data;
-                const keys = Object.keys(data);
-                const contadorEl = document.getElementById('contadorConectados');
-                if (contadorEl) {
-                    contadorEl.innerText = `${keys.length}/5 Conectados`;
-                    contadorEl.className = keys.length >= 5 ? "text-xs font-bold px-2.5 py-1 rounded-full bg-red-600 text-white font-mono" : "text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white font-mono";
-                }
-                
-                // Actualizar logs en panel admin
                 actualizarLogsAdmin(data);
 
                 if (typeof window.actualizarSesionesGlobales === 'function') {
@@ -588,17 +595,15 @@
                 return;
             }
 
-            const esAdmin = operador.toLowerCase().includes('mario') || operador.toLowerCase().includes('carrivers') || operador.toLowerCase().includes('admin');
-
-            // Validar límite de 5 operadores simultáneos (Excepto Admin Mayito)
+            // Validar límite de 5 operadores simultáneos
             if (window.db && window.firebaseRef && window.firebaseGet && window.firebaseSet) {
                 const sesionesRef = window.firebaseRef(window.db, 'sesiones_activas');
                 const snapshot = await window.firebaseGet(sesionesRef);
                 const sesiones = snapshot.val() || {};
                 const keys = Object.keys(sesiones);
 
-                if (!sesiones[window.sesionId] && keys.length >= 5 && !esAdmin) {
-                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos). Como administrador, Mayito Cárdenas puede acceder en cualquier momento.');
+                if (!sesiones[window.sesionId] && keys.length >= 5) {
+                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos). Por favor, espera a que un operador finalice.');
                     return;
                 }
 
@@ -619,18 +624,10 @@
             sesionActualConfig = data;
             window.modulosPermitidos = data.modulosData.map(m => String(m.modulo).trim());
 
-            const esAdmin = data.operador.toLowerCase().includes('mario') || data.operador.toLowerCase().includes('carrivers') || data.operador.toLowerCase().includes('admin');
-            const etiquetaRol = esAdmin ? `${data.operador} [ADMINISTRADOR]` : data.operador;
-
-            document.getElementById('lblOpName').innerText = etiquetaRol;
+            document.getElementById('lblOpName').innerText = data.operador;
             document.getElementById('badgeOperador').classList.remove('hidden');
             document.getElementById('btnLiberar').classList.remove('hidden');
-            
-            if (esAdmin) {
-                document.getElementById('btnAdminPanel').classList.remove('hidden');
-            }
-
-            document.getElementById('infoSesionDistrito').innerText = `Entidad: ${data.entidad} | Distrito: ${data.distrito} | Operador: ${etiquetaRol}`;
+            document.getElementById('infoSesionDistrito').innerText = `Entidad: ${data.entidad} | Distrito: ${data.distrito} | Operador: ${data.operador}`;
 
             document.getElementById('configSection').classList.add('hidden');
             document.getElementById('workSection').classList.remove('hidden');
@@ -667,7 +664,7 @@
         }
 
         function abrirConfiguracion() {
-            if (confirm("¿Deseas modificar los datos de configuración inicial y del operador actual?")) {
+            if (confirm("¿Deseas modificar los datos de configuración inicial?")) {
                 document.getElementById('configSection').classList.remove('hidden');
                 document.getElementById('workSection').classList.add('hidden');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -676,7 +673,7 @@
 
         function confirmarSalidaMenu(e) {
             e.preventDefault();
-            const seguro = confirm("⚠️ ADVERTENCIA AMIGABLE:\n\nAl regresar al Menú Principal, tu sesión actual se cerrará y todo el avance no guardado será borrado para dejar el sistema listo para otro compañero. ¿Estás seguro de querer salir?");
+            const seguro = confirm("⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de regresar al Menú Principal? Tu sesión y avance temporal serán borrados para dejar el sistema listo para otro compañero.");
             if (seguro) {
                 liberarSesionDirecto();
             }
@@ -702,7 +699,8 @@
             }
         }
 
-        function abrirModalAdmin() {
+        // ACCESO ADMINISTRADOR AL TOCAR EL SEMÁFORO VERDE/ROJO
+        function dispararAccesoAdmin() {
             document.getElementById('adminPasswordInput').value = '';
             document.getElementById('adminPasswordBox').classList.remove('hidden');
             document.getElementById('adminContentPanel').classList.add('hidden');
