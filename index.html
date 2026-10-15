@@ -6,12 +6,14 @@
     <title>Sistema de Control y Generación de Etiquetas CPV - INE</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS (XLSX) para lectura de archivos Excel / XLS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Firebase SDK v10 (Modular) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, push, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA6jvnsXZwF2anOJo3VadfNvn7Fl6Z5efY",
@@ -31,32 +33,25 @@
         window.firebaseSet = set;
         window.firebaseOnValue = onValue;
         window.firebaseRemove = remove;
+        window.firebaseGet = get;
 
         const statusIcon = document.getElementById('firebaseStatus');
         if (statusIcon) {
-            statusIcon.innerText = "🟢 OlinE";
+            statusIcon.innerText = "🟢 Conectado a Firebase";
             statusIcon.className = "text-emerald-400 font-semibold";
         }
 
-        onValue(ref(db, 'datosentidad'), (snapshot) => {
-            const data = snapshot.val();
-            if (data && typeof window.cargarDatosEntidadRemotos === 'function') {
-                window.cargarDatosEntidadRemotos(data);
+        // Sincronizar sesiones concurrentes (Máximo 5)
+        onValue(ref(db, 'sesiones_activas'), (snapshot) => {
+            const data = snapshot.val() || {};
+            const keys = Object.keys(data);
+            const contadorEl = document.getElementById('contadorConectados');
+            if (contadorEl) {
+                contadorEl.innerText = `${keys.length}/5 Conectados`;
+                contadorEl.className = keys.length >= 5 ? "text-xs font-bold px-3 py-1 rounded-full bg-red-600 text-white" : "text-xs font-bold px-3 py-1 rounded-full bg-emerald-600 text-white";
             }
-        });
-
-        onValue(ref(db, 'Descarga_info'), (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const loadedData = Object.values(data);
-                window.descargaInfoDB = loadedData;
-                localStorage.setItem('descarga_info_db', JSON.stringify(loadedData));
-            } else {
-                window.descargaInfoDB = [];
-                localStorage.removeItem('descarga_info_db');
-            }
-            if (typeof actualizarVista === 'function') {
-                actualizarVista();
+            if (typeof window.actualizarSesionesGlobales === 'function') {
+                window.actualizarSesionesGlobales(data);
             }
         });
     </script>
@@ -86,12 +81,50 @@
             gap: 20px !important;
             width: 100% !important;
         }
+
+        /* Botón Flotante Superior Derecho con Imagen Circular */
+        .btn-regresar-menu-top {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            background: #ffffff;
+            color: #1e293b;
+            padding: 4px 12px 4px 4px;
+            border-radius: 35px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: 2px solid #b91c1c;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            transition: all 0.3s ease;
+        }
+
+        .btn-regresar-menu-top img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #b91c1c;
+        }
+
+        .btn-regresar-menu-top:hover {
+            background: #b91c1c;
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(185, 28, 28, 0.5);
+        }
+
         @media print {
             @page {
                 size: landscape;
                 margin: 5mm;
             }
-            header, nav, #configSection, .no-print, footer {
+            header, nav, #configSection, .no-print, footer, .btn-regresar-menu-top {
                 display: none !important;
             }
             body {
@@ -140,13 +173,20 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between">
 
+    <!-- Botón Flotante Superior Derecho con la imagen mayito admin.jpeg -->
+    <a href="#" onclick="confirmarSalidaMenu(event)" class="btn-regresar-menu-top no-print" title="Regresar al Menú Principal">
+        <img src="mayito admin.jpeg" alt="Mayito Admin" onerror="this.src='https://via.placeholder.com/40'">
+        <span>Menú Principal</span>
+    </a>
+
     <!-- Header Institucional -->
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v4.6)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v4.8)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+            <span id="contadorConectados" class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-600 text-white">0/5 Conectados</span>
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
             <span id="badgeOperador" class="bg-ineRed text-xs font-semibold px-3 py-1 rounded-full uppercase hidden">Operador: <span id="lblOpName"></span></span>
             <button onclick="liberarSesion()" id="btnLiberar" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 px-3 rounded transition hidden">Cerrar Sesión</button>
@@ -171,7 +211,7 @@
         </div>
     </div>
 
-    <!-- MODAL VENTANA FLOTANTE: TABLA INTERNA DEPURADA -->
+    <!-- MODAL TABLA DEPURADA -->
     <div id="tablaDepuradaModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden no-print">
         <div class="bg-white rounded-xl p-6 max-w-4xl w-full shadow-2xl border border-slate-300 space-y-4 max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
@@ -207,7 +247,7 @@
         <section id="configSection" class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
             <div class="border-b border-slate-200 pb-3 mb-4">
                 <h2 class="text-base font-bold text-slate-800 uppercase">Configuración Inicial de Operación y Funcionarios</h2>
-                <p class="text-xs text-slate-500">Ingresa los datos generales y asigna el responsable de cada módulo.</p>
+                <p class="text-xs text-slate-500">Ingresa los datos generales y asigna el responsable de cada módulo (Capacidad máxima: 5 operadores simultáneos).</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -290,8 +330,8 @@
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
                     <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
                         <div>
-                            <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info (Filtrada por Módulos Autorizados)</h2>
-                            <p class="text-xs text-slate-500">Registros sincronizados y homologados correctamente</p>
+                            <h2 class="text-sm font-bold text-slate-800 uppercase">Base de Datos: Descarga_info (Tus Registros Exclusivos)</h2>
+                            <p class="text-xs text-slate-500">Registros sincronizados de tu sesión independiente</p>
                         </div>
                         <button onclick="exportarDescargaInfo()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">
                             Exportar JSON
@@ -327,13 +367,13 @@
                 </div>
             </div>
 
-            <!-- VISTA 2: ETIQUETAS POR LOTE (CON SELECTOR DE MÓDULO INDEPENDIENTE) -->
+            <!-- VISTA 2: ETIQUETAS POR LOTE -->
             <div id="tabEtiquetasLote" class="space-y-6 hidden">
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-3">
                         <div>
                             <h2 class="text-base font-bold text-slate-800 uppercase">Generador de Etiquetas por Lote</h2>
-                            <p class="text-xs text-slate-500">Selecciona el módulo</p>
+                            <p class="text-xs text-slate-500">Selecciona el módulo para generar y ver únicamente sus etiquetas por lote.</p>
                         </div>
                         <div class="flex items-center space-x-3">
                             <select id="selectModuloLote" onchange="actualizarVistaLoteYPaquete()" class="border border-slate-300 rounded p-2 text-xs font-bold bg-slate-50 focus:ring-2 focus:ring-ineRed focus:outline-none">
@@ -343,7 +383,7 @@
                                 📋 Ver Tabla Interna
                             </button>
                             <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded shadow transition">
-                                🖨️ Imprimir
+                                🖨️ Imprimir Módulo Actual
                             </button>
                         </div>
                     </div>
@@ -354,7 +394,7 @@
                 </div>
             </div>
 
-            <!-- VISTA 3: ETIQUETAS POR PAQUETE (COMPARTE EL MISMO SELECTOR DE MÓDULO) -->
+            <!-- VISTA 3: ETIQUETAS POR PAQUETE -->
             <div id="tabEtiquetasPaquete" class="space-y-6 hidden">
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-4">
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-3">
@@ -365,7 +405,7 @@
                         <div class="flex items-center space-x-3">
                             <span id="labelModuloPaqueteActivo" class="text-xs font-bold text-ineRed bg-red-50 border border-red-200 px-3 py-1.5 rounded">Módulo no seleccionado</span>
                             <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded shadow transition">
-                                🖨️ Imprimir
+                                🖨️ Imprimir Paquetes del Módulo
                             </button>
                         </div>
                     </div>
@@ -387,7 +427,10 @@
 
     <!-- Lógica JavaScript -->
     <script>
-        window.descargaInfoDB = JSON.parse(localStorage.getItem('descarga_info_db')) || [];
+        window.sesionId = localStorage.getItem('sesion_id_operador') || 'op_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('sesion_id_operador', window.sesionId);
+
+        window.descargaInfoDB = [];
         window.modulosPermitidos = [];
         let sesionActualConfig = null;
 
@@ -445,7 +488,7 @@
             }
         }
 
-        function guardarConfiguracionEntidad() {
+        async function guardarConfiguracionEntidad() {
             const entidadInput = document.getElementById('cfgEntidad').value.trim();
             const distrito = document.getElementById('cfgDistrito').value.trim();
             const numMods = parseInt(document.getElementById('cfgNumModulos').value) || 0;
@@ -475,14 +518,26 @@
                 return;
             }
 
-            const entidadNombre = obtenerNombreEntidad(entidadInput);
-            const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now() };
+            // Validar límite de 5 operadores simultáneos
+            if (window.db && window.firebaseRef && window.firebaseGet && window.firebaseSet) {
+                const sesionesRef = window.firebaseRef(window.db, 'sesiones_activas');
+                const snapshot = await window.firebaseGet(sesionesRef);
+                const sesiones = snapshot.val() || {};
+                const keys = Object.keys(sesiones);
 
-            if (window.db && window.firebaseRef && window.firebaseSet) {
-                window.firebaseSet(window.firebaseRef(window.db, 'datosentidad'), configData)
-                    .then(() => aplicarConfiguracionLocal(configData))
-                    .catch(err => alert('Error al guardar en Firebase: ' + err.message));
+                if (!sesiones[window.sesionId] && keys.length >= 5) {
+                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos). Por favor, espera a que un operador finalice su sesión.');
+                    return;
+                }
+
+                const entidadNombre = obtenerNombreEntidad(entidadInput);
+                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now() };
+
+                await window.firebaseSet(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/config`), configData);
+                aplicarConfiguracionLocal(configData);
             } else {
+                const entidadNombre = obtenerNombreEntidad(entidadInput);
+                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now() };
                 aplicarConfiguracionLocal(configData);
             }
         }
@@ -502,7 +557,6 @@
             document.getElementById('configSection').classList.add('hidden');
             document.getElementById('workSection').classList.remove('hidden');
 
-            // Poblar selector de módulos en lote
             const selLote = document.getElementById('selectModuloLote');
             if (selLote) {
                 selLote.innerHTML = `<option value="">-- Selecciona un Módulo --</option>`;
@@ -512,22 +566,53 @@
             }
 
             renderizarTarjetasTotalesDinamicas();
-            actualizarVista();
+            sincronizarDatosOperadorFirebase();
         }
 
-        window.cargarDatosEntidadRemotos = function(data) {
-            if (data && data.operador) {
-                aplicarConfiguracionLocal(data);
+        // Sincronizar datos exclusivos de este operador en Firebase
+        function sincronizarDatosOperadorFirebase() {
+            if (!window.db || !window.firebaseRef || !window.firebaseOnValue) return;
+            window.firebaseOnValue(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/datos`), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    window.descargaInfoDB = Object.values(data);
+                } else {
+                    window.descargaInfoDB = [];
+                }
+                actualizarVista();
+            });
+        }
+
+        window.actualizarSesionesGlobales = function(data) {
+            if (data && data[window.sesionId] && data[window.sesionId].config && document.getElementById('configSection').classList.contains('hidden') === false) {
+                aplicarConfiguracionLocal(data[window.sesionId].config);
+            }
+        }
+
+        function confirmarSalidaMenu(e) {
+            e.preventDefault();
+            const seguro = confirm("⚠️ ADVERTENCIA: Todo tu avance y los datos cargados en tu sesión actual serán borrados. ¿Estás seguro de querer regresar al menú principal y liberar el sistema para otra persona?");
+            if (seguro) {
+                liberarSesionDirecto();
             }
         }
 
         function liberarSesion() {
-            if (confirm('¿Deseas cerrar sesión y liberar el panel de configuración?')) {
-                if (window.db && window.firebaseRef && window.firebaseRemove) {
-                    window.firebaseRemove(window.firebaseRef(window.db, 'datosentidad'));
-                }
-                localStorage.removeItem('datosentidad');
-                location.reload();
+            if (confirm('¿Deseas cerrar sesión y liberar tu espacio de trabajo?')) {
+                liberarSesionDirecto();
+            }
+        }
+
+        function liberarSesionDirecto() {
+            if (window.db && window.firebaseRef && window.firebaseRemove) {
+                window.firebaseRemove(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}`))
+                    .then(() => {
+                        localStorage.removeItem('sesion_id_operador');
+                        window.location.href = "https://registro03coah.github.io/mimenu/index.html";
+                    });
+            } else {
+                localStorage.removeItem('sesion_id_operador');
+                window.location.href = "https://registro03coah.github.io/mimenu/index.html";
             }
         }
 
@@ -541,16 +626,15 @@
             document.getElementById('adminModal').classList.add('hidden');
         }
 
-        function verificarContraseñaAdmin() {
+        async function verificarContraseñaAdmin() {
             const pass = document.getElementById('adminPasswordInput').value;
             if (pass === 'charro') {
                 cerrarModalAdmin();
                 if (window.db && window.firebaseRef && window.firebaseRemove) {
-                    window.firebaseRemove(window.firebaseRef(window.db, 'datosentidad'));
-                    window.firebaseRemove(window.firebaseRef(window.db, 'Descarga_info'));
+                    await window.firebaseRemove(window.firebaseRef(window.db, 'sesiones_activas'));
                 }
                 localStorage.clear();
-                alert('¡Borrado total exitoso! Las bases de datos se han reiniciado a cero.');
+                alert('¡Borrado total exitoso! Todas las sesiones concurrentes se han reiniciado.');
                 location.reload();
             } else {
                 alert('Contraseña incorrecta.');
@@ -658,7 +742,7 @@
                     return;
                 }
 
-                guardarEnFirebaseYActualizar(nuevos);
+                guardarDatosOperadorFirebase(nuevos);
                 document.getElementById('statusExcel').innerText = `¡Procesado (${nuevos.length} registros)!`;
             };
             reader.readAsArrayBuffer(file);
@@ -670,19 +754,20 @@
             const lineas = pastedText.split('\n').map(l => l.split('\t'));
             const nuevos = procesarFilasExcel(lineas);
             if (nuevos.length === 0) { alert('No se encontraron registros válidos.'); return; }
-            guardarEnFirebaseYActualizar(nuevos);
+            guardarDatosOperadorFirebase(nuevos);
             document.getElementById('statusPaste').innerText = `¡Se procesaron ${nuevos.length} registros!`;
         }
 
-        function guardarEnFirebaseYActualizar(nuevosRegistros) {
-            if (window.db && window.firebaseRef && window.firebasePush) {
-                const dbRef = window.firebaseRef(window.db, 'Descarga_info');
+        function guardarDatosOperadorFirebase(nuevosRegistros) {
+            if (window.db && window.firebaseRef && window.firebaseSet) {
+                const dbRef = window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/datos`);
                 window.firebaseRemove(dbRef).then(() => {
-                    nuevosRegistros.forEach(reg => window.firebasePush(dbRef, reg));
+                    nuevosRegistros.forEach(reg => {
+                        window.firebasePush(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/datos`), reg);
+                    });
                 });
             } else {
                 window.descargaInfoDB = nuevosRegistros;
-                localStorage.setItem('descarga_info_db', JSON.stringify(window.descargaInfoDB));
                 actualizarVista();
             }
         }
@@ -743,7 +828,6 @@
             });
         }
 
-        // TABLA DEPURADA INTERNA: Orden estricto Módulo -> Entidad CPV (con letra) -> Sección
         function abrirModalTablaDepurada() {
             const tbody = document.getElementById('tablaDepuradaBody');
             if (!tbody) return;
@@ -781,7 +865,6 @@
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
         }
 
-        // ACTUALIZAR AMBAS VISTAS (LOTE Y PAQUETE) SEGÚN EL MÓDULO SELECCIONADO
         function actualizarVistaLoteYPaquete() {
             const modSeleccionado = document.getElementById('selectModuloLote').value;
             const badgePaq = document.getElementById('labelModuloPaqueteActivo');
@@ -799,7 +882,6 @@
             renderizarEtiquetasPaquete(modSeleccionado);
         }
 
-        // GENERACIÓN DE ETIQUETAS POR LOTE (FILTRADAS POR MÓDULO)
         function generarEtiquetasPorLote(modSeleccionado) {
             const container = document.getElementById('contenedorEtiquetasLote');
             if (!container) return;
@@ -976,7 +1058,6 @@
             return wrapper;
         }
 
-        // RENDERIZAR ETIQUETAS POR PAQUETE (20 por hoja, 10 por columna, con Otras Entidades sumando credenciales pero no secciones)
         function renderizarEtiquetasPaquete(modSeleccionado) {
             const container = document.getElementById('contenedorEtiquetasPaquete');
             if (!container) return;
@@ -1014,7 +1095,6 @@
 
             itemsLocales.sort((a, b) => a.seccion - b.seccion);
 
-            // Agregar registro de "Otras Entidades" al final si existe
             if (sumOtrasCreds > 0) {
                 itemsLocales.push({ seccion: "OTRAS ENTIDADES", credenciales: sumOtrasCreds, esOtras: true });
             }
@@ -1024,7 +1104,6 @@
                 return;
             }
 
-            // Dividir en páginas de 20 elementos (10 por columna)
             let paginasItems = [];
             for (let i = 0; i < itemsLocales.length; i += 20) {
                 paginasItems.push(itemsLocales.slice(i, i + 20));
@@ -1142,7 +1221,7 @@
                         <span class="border-b border-black w-8 text-center font-mono">${data.totalCajas}</span>
                     </div>
 
-                    <!-- TABLA DE SECCIONES (IDÉNTICA A LA IMAGEN) -->
+                    <!-- TABLA DE SECCIONES -->
                     <div class="border border-black">
                         <table class="w-full text-center border-collapse text-[10px]">
                             <thead>
@@ -1210,40 +1289,5 @@
             downloadAnchor.remove();
         }
     </script>
-     <!-- Botón Flotante para Regresar al Menú Principal -->
-<a href="https://registro03coah.github.io/mimenu/index.html" class="btn-regresar-menu" title="Regresar al Centro de Mando">
-    <i class="fas fa-home"></i> <span>Menú Principal</span>
-</a>
-
-<style>
-    .btn-regresar-menu {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        background: rgba(13, 27, 42, 0.9);
-        color: #fff;
-        padding: 10px 18px;
-        border-radius: 30px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        text-decoration: none;
-        font-family: 'Poppins', sans-serif;
-        font-size: 0.85rem;
-        font-weight: 600;
-        border: 2px solid #4ea8de;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(5px);
-        z-index: 9999;
-        transition: all 0.3s ease;
-    }
-
-    .btn-regresar-menu:hover {
-        background: #4ea8de;
-        color: #0d1b2a;
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(78, 168, 222, 0.7);
-    }
-</style>
 </body>
 </html>
