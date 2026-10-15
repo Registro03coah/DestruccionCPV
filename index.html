@@ -34,7 +34,7 @@
 
         const statusIcon = document.getElementById('firebaseStatus');
         if (statusIcon) {
-            statusIcon.innerText = "🟢 Conectado a Firebase";
+            statusIcon.innerText = "🟢 OlinE";
             statusIcon.className = "text-emerald-400 font-semibold";
         }
 
@@ -333,7 +333,7 @@
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-3">
                         <div>
                             <h2 class="text-base font-bold text-slate-800 uppercase">Generador de Etiquetas por Lote</h2>
-                            <p class="text-xs text-slate-500">Selecciona el módulo para generar y ver únicamente sus etiquetas por lote.</p>
+                            <p class="text-xs text-slate-500">Selecciona el módulo</p>
                         </div>
                         <div class="flex items-center space-x-3">
                             <select id="selectModuloLote" onchange="actualizarVistaLoteYPaquete()" class="border border-slate-300 rounded p-2 text-xs font-bold bg-slate-50 focus:ring-2 focus:ring-ineRed focus:outline-none">
@@ -343,7 +343,7 @@
                                 📋 Ver Tabla Interna
                             </button>
                             <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded shadow transition">
-                                🖨️ Imprimir Módulo Actual
+                                🖨️ Imprimir
                             </button>
                         </div>
                     </div>
@@ -365,7 +365,7 @@
                         <div class="flex items-center space-x-3">
                             <span id="labelModuloPaqueteActivo" class="text-xs font-bold text-ineRed bg-red-50 border border-red-200 px-3 py-1.5 rounded">Módulo no seleccionado</span>
                             <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded shadow transition">
-                                🖨️ Imprimir Paquetes del Módulo
+                                🖨️ Imprimir
                             </button>
                         </div>
                     </div>
