@@ -177,7 +177,6 @@
                 width: 100% !important;
             }
             
-            /* Contenedor principal de paquetes para impresión limpia */
             #contenedorEtiquetasPaquete {
                 display: flex !important;
                 flex-direction: column !important;
@@ -195,20 +194,21 @@
                 background: white !important;
             }
             
-            /* Contenedor de página que agrupa exactamente 3 etiquetas por hoja horizontal */
+            /* Grupo de 3 etiquetas en una sola fila horizontal por cada página carta */
             .pagina-paquetes-grupo {
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 8px !important;
                 width: 100% !important;
-                height: 190mm !important;
-                max-height: 190mm !important;
+                height: 198mm !important;
+                max-height: 198mm !important;
                 page-break-after: always !important;
                 break-after: page !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
                 margin-bottom: 0mm !important;
                 padding: 0 !important;
+                align-items: stretch !important;
             }
 
             .etiqueta-paquete-print {
@@ -218,9 +218,8 @@
                 background: #fff !important;
                 box-shadow: none !important;
                 width: 100% !important;
-                max-width: 100% !important;
-                height: 31% !important;
-                padding: 6px 10px !important;
+                height: 100% !important;
+                padding: 5px 8px !important;
                 margin: 0 !important;
                 display: flex !important;
                 flex-direction: column !important;
@@ -244,7 +243,7 @@
             <span id="semaforoConexiones" onclick="dispararAccesoAdmin()" class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer hover:scale-125 transition" title="Haz clic aquí para ingresar como Administrador"></span>
             <div>
                 <h1 class="text-sm font-bold tracking-wide leading-tight">INSTITUTO NACIONAL ELECTORAL</h1>
-                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.9)</span></p>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v6.0)</span></p>
             </div>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-1.5">
@@ -499,7 +498,7 @@
                     <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-3">
                         <div>
                             <h2 class="text-base font-bold text-slate-800 uppercase">Etiquetas por Paquete (Identificación Oficial)</h2>
-                            <p class="text-xs text-slate-500">Muestra los paquetes correspondientes al módulo seleccionado (exactamente 3 etiquetas por hoja horizontal al imprimir).</p>
+                            <p class="text-xs text-slate-500">Muestra los paquetes correspondientes al módulo seleccionado (3 etiquetas horizontales por hoja al imprimir).</p>
                         </div>
                         <div class="flex items-center space-x-3">
                             <span id="labelModuloPaqueteActivo" class="text-xs font-bold text-ineRed bg-red-50 border border-red-200 px-3 py-1.5 rounded">Módulo no seleccionado</span>
@@ -1359,7 +1358,7 @@
                 todasLasEtiquetasHtml.push(etiquetaHtml);
             });
 
-            // AGRUPAR EXACTAMENTE 3 ETIQUETAS POR CADA HOJA HORIZONTAL
+            // AGRUPAR EXACTAMENTE 3 ETIQUETAS EN UNA SOLA FILA HORIZONTAL (3 COLUMNAS) POR PÁGINA
             for (let i = 0; i < todasLasEtiquetasHtml.length; i += 3) {
                 const grupoDiv = document.createElement('div');
                 grupoDiv.className = "pagina-paquetes-grupo";
@@ -1373,7 +1372,7 @@
 
         function crearHtmlEtiquetaPaquete(data) {
             const wrapper = document.createElement('div');
-            wrapper.className = "etiqueta-paquete-print border-2 border-black p-2 bg-white shadow-sm space-y-1 font-sans text-xs w-full max-w-[550px] mx-auto";
+            wrapper.className = "etiqueta-paquete-print border-2 border-black p-2 bg-white shadow-sm space-y-1 font-sans text-xs w-full mx-auto";
 
             const modStr = String(data.modulo).padStart(5, '0');
             const m1 = modStr.slice(0, 2);
