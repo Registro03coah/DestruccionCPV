@@ -208,7 +208,7 @@
             <span id="semaforoConexiones" onclick="dispararAccesoAdmin()" class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer hover:scale-125 transition" title="Haz clic aquí para ingresar como Administrador"></span>
             <div>
                 <h1 class="text-sm font-bold tracking-wide leading-tight">INSTITUTO NACIONAL ELECTORAL</h1>
-                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.1)</span></p>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.2)</span></p>
             </div>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-1.5">
@@ -268,8 +268,8 @@
         <div class="bg-white rounded-xl p-6 max-w-4xl w-full shadow-2xl border border-slate-300 space-y-4 max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-slate-800 uppercase">Tabla Depurada Interna</h3>
-                    <p class="text-xs text-slate-500">Orden estricto: Módulo -> Entidad CPV (con letra) -> Sección (menor a mayor).</p>
+                    <h3 class="text-base font-bold text-slate-800 uppercase">Tabla Depurada Interna (Devueltas a Entrega)</h3>
+                    <p class="text-xs text-slate-500">Orden estricto: Módulo -> Entidad CPV (con letra) -> Sección (menor a mayor). Excluye retiros.</p>
                 </div>
                 <button onclick="cerrarModalTablaDepurada()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1 rounded text-xs transition">✕ Cerrar</button>
             </div>
@@ -387,7 +387,7 @@
                     </div>
                 </div>
 
-                <!-- 3 RECTÁNGULOS DE MÓDULOS CON TÍTULO DEvEnt (Devueltas a Entrega), Retiros y Otras Entidades -->
+                <!-- 3 RECTÁNGULOS DE MÓDULOS CON TÍTULO DevEnt -->
                 <div id="totalesModulosGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
 
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
@@ -673,14 +673,14 @@
 
         function confirmarSalidaMenu(e) {
             e.preventDefault();
-            const seguro = confirm("⚠️ ¡Aviso Importante!\n\n¿Estás seguro de regresar al Menú Principal? Tu sesión y avance temporal serán borrados para dejar el sistema listo para otro compañero.");
+            const seguro = confirm("⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de regresar al Menú Principal? Tu sesión y avance temporal serán borrados para dejar el sistema listo para otro compañero.");
             if (seguro) {
                 liberarSesionDirecto();
             }
         }
 
         function liberarSesion() {
-            const seguro = confirm('⚠️ ¡Aviso Importante!\n\n¿Estás seguro de cerrar sesión? Tu avance y datos temporales serán borrados para dejar el sistema listo para el siguiente usuario de los 5 permitidos.');
+            const seguro = confirm('⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de cerrar sesión? Tu avance y datos temporales serán borrados para dejar el sistema listo para el siguiente usuario de los 5 permitidos.');
             if (seguro) {
                 liberarSesionDirecto();
             }
@@ -1059,7 +1059,7 @@
                 if (esEntidadLocal(reg.entidadCpv, entidadLocal)) {
                     registrosMismaEntidad.push(reg);
                 } else {
-                    totalOtrasEntidades += Number(reg.total) || 0;
+                    totalOtrasEntidades += Number(reg.devueltasEntrega || reg.total) || 0;
                 }
             });
 
@@ -1068,7 +1068,7 @@
             let currentBatchTotal = 0;
 
             registrosMismaEntidad.forEach(reg => {
-                let credsRestantes = Number(reg.total) || 0;
+                let credsRestantes = Number(reg.devueltasEntrega || reg.total) || 0;
                 const secNum = Number(reg.seccion);
 
                 if (credsRestantes <= 0) return;
@@ -1222,7 +1222,7 @@
             let sumOtrasCreds = 0;
 
             regsMod.forEach(r => {
-                const creds = Number(r.devueltasEntrega || r.total) || 0;
+                const creds = Number(r.devueltasEntrega || 0);
                 if (creds > 0) {
                     if (esEntidadLocal(r.entidadCpv, entidadLocal)) {
                         itemsLocales.push({ seccion: r.seccion, credenciales: creds });
