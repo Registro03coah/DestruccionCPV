@@ -101,15 +101,30 @@
                 padding: 0 !important;
             }
             #tabEtiquetasLote, #tabEtiquetasPaquete {
-                display: grid !important;
+                display: block !important;
                 margin: 0 !important;
                 padding: 0 !important;
+            }
+            #contenedorEtiquetasLote {
+                display: grid !important;
+                grid-template-columns: repeat(4, 1fr) !important;
+                gap: 6px !important;
+                width: 100% !important;
             }
             #contenedorEtiquetasPaquete {
                 display: grid !important;
                 grid-template-columns: repeat(2, 1fr) !important;
                 gap: 10px !important;
                 width: 100% !important;
+            }
+            .etiqueta-ine {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                border: 1.5px solid #000 !important;
+                box-shadow: none !important;
+                width: 100% !important;
+                padding: 6px !important;
+                background: white !important;
             }
             .etiqueta-paquete-print {
                 break-inside: avoid;
@@ -129,7 +144,7 @@
     <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
         <div>
             <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v4.5)</span></p>
+            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v4.6)</span></p>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
             <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
@@ -312,50 +327,51 @@
                 </div>
             </div>
 
-            <!-- VISTA 2: ETIQUETAS POR LOTE -->
+            <!-- VISTA 2: ETIQUETAS POR LOTE (CON SELECTOR DE MÓDULO INDEPENDIENTE) -->
             <div id="tabEtiquetasLote" class="space-y-6 hidden">
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-4">
-                    <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
+                    <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-3">
                         <div>
-                            <h2 class="text-base font-bold text-slate-800 uppercase">Generador de Etiquetas por Lote.</h2>
-                            <p class="text-xs text-slate-500">Paquetes exactos de 100 en 100 con partición de secciones en formato horizontal (4x4).</p>
+                            <h2 class="text-base font-bold text-slate-800 uppercase">Generador de Etiquetas por Lote</h2>
+                            <p class="text-xs text-slate-500">Selecciona el módulo para generar y ver únicamente sus etiquetas por lote.</p>
                         </div>
-                        <div class="flex space-x-2">
+                        <div class="flex items-center space-x-3">
+                            <select id="selectModuloLote" onchange="actualizarVistaLoteYPaquete()" class="border border-slate-300 rounded p-2 text-xs font-bold bg-slate-50 focus:ring-2 focus:ring-ineRed focus:outline-none">
+                                <option value="">-- Selecciona un Módulo --</option>
+                            </select>
                             <button onclick="abrirModalTablaDepurada()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">
-                                📋 Ver Tabla Interna Depurada
+                                📋 Ver Tabla Interna
                             </button>
                             <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded shadow transition">
-                                🖨️ Imprimir Todas las Etiquetas
+                                🖨️ Imprimir Módulo Actual
                             </button>
                         </div>
                     </div>
 
                     <div id="contenedorEtiquetasLote" class="py-2">
-                        <div class="text-center py-10 text-slate-400 italic col-span-4">Cargando datos y generando lotes de etiquetas...</div>
+                        <div class="text-center py-10 text-slate-400 italic col-span-4">Selecciona un módulo arriba para generar sus etiquetas por lote.</div>
                     </div>
                 </div>
             </div>
 
-            <!-- VISTA 3: ETIQUETAS POR PAQUETE (AUTOMATIZADO 20 POR HOJA) -->
+            <!-- VISTA 3: ETIQUETAS POR PAQUETE (COMPARTE EL MISMO SELECTOR DE MÓDULO) -->
             <div id="tabEtiquetasPaquete" class="space-y-6 hidden">
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-4">
-                    <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-2">
+                    <div class="flex justify-between items-center border-b pb-3 no-print flex-wrap gap-3">
                         <div>
                             <h2 class="text-base font-bold text-slate-800 uppercase">Etiquetas por Paquete (Identificación Oficial)</h2>
-                            <p class="text-xs text-slate-500">Selecciona el módulo para generar automáticamente las etiquetas (20 secciones por hoja, 10 por columna).</p>
+                            <p class="text-xs text-slate-500">Muestra los paquetes correspondientes al módulo seleccionado (20 secciones por hoja, 10 por columna).</p>
                         </div>
                         <div class="flex items-center space-x-3">
-                            <select id="selectModuloPaquete" onchange="renderizarEtiquetasPaquete()" class="border border-slate-300 rounded p-2 text-xs font-bold bg-slate-50 focus:ring-2 focus:ring-ineRed focus:outline-none">
-                                <option value="">-- Selecciona un Módulo --</option>
-                            </select>
+                            <span id="labelModuloPaqueteActivo" class="text-xs font-bold text-ineRed bg-red-50 border border-red-200 px-3 py-1.5 rounded">Módulo no seleccionado</span>
                             <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 rounded shadow transition">
-                                🖨️ Imprimir Etiquetas
+                                🖨️ Imprimir Paquetes del Módulo
                             </button>
                         </div>
                     </div>
 
                     <div id="contenedorEtiquetasPaquete" class="py-2">
-                        <div class="text-center py-10 text-slate-400 italic col-span-2">Selecciona un módulo arriba para generar las etiquetas por paquete.</div>
+                        <div class="text-center py-10 text-slate-400 italic col-span-2">Selecciona un módulo en la pestaña "Etiquetas por Lote" para ver sus paquetes.</div>
                     </div>
                 </div>
             </div>
@@ -486,12 +502,12 @@
             document.getElementById('configSection').classList.add('hidden');
             document.getElementById('workSection').classList.remove('hidden');
 
-            // Poblar selector de módulos en paquetes
-            const sel = document.getElementById('selectModuloPaquete');
-            if (sel) {
-                sel.innerHTML = `<option value="">-- Selecciona un Módulo --</option>`;
+            // Poblar selector de módulos en lote
+            const selLote = document.getElementById('selectModuloLote');
+            if (selLote) {
+                selLote.innerHTML = `<option value="">-- Selecciona un Módulo --</option>`;
                 data.modulosData.forEach(m => {
-                    sel.innerHTML += `<option value="${m.modulo}">Módulo ${m.modulo} (${m.nombre || 'Sin Responsable'})</option>`;
+                    selLote.innerHTML += `<option value="${m.modulo}">Módulo ${m.modulo} (${m.nombre || 'Sin Responsable'})</option>`;
                 });
             }
 
@@ -558,10 +574,6 @@
             const activeBtnId = tabId === 'tabMeterDatos' ? 'btnTabMeter' : (tabId === 'tabEtiquetasLote' ? 'btnTabLote' : 'btnTabPaquete');
             const activeBtn = document.getElementById(activeBtnId);
             if (activeBtn) activeBtn.className = "bg-ineRed text-white text-xs font-bold py-2 px-4 rounded shadow transition";
-
-            if (tabId === 'tabEtiquetasLote') {
-                generarEtiquetasPorLote();
-            }
         }
 
         function renderizarTarjetasTotalesDinamicas() {
@@ -678,8 +690,8 @@
         function actualizarVista() {
             renderizarTablaDescargaInfo();
             calcularTotalesModulos();
-            if (document.getElementById('selectModuloPaquete').value) {
-                renderizarEtiquetasPaquete();
+            if (document.getElementById('selectModuloLote').value) {
+                actualizarVistaLoteYPaquete();
             }
         }
 
@@ -769,15 +781,209 @@
             document.getElementById('tablaDepuradaModal').classList.add('hidden');
         }
 
-        // RENDERIZAR ETIQUETAS POR PAQUETE (20 por hoja, 10 por columna, con Otras Entidades)
-        function renderizarEtiquetasPaquete() {
-            const modSeleccionado = document.getElementById('selectModuloPaquete').value;
+        // ACTUALIZAR AMBAS VISTAS (LOTE Y PAQUETE) SEGÚN EL MÓDULO SELECCIONADO
+        function actualizarVistaLoteYPaquete() {
+            const modSeleccionado = document.getElementById('selectModuloLote').value;
+            const badgePaq = document.getElementById('labelModuloPaqueteActivo');
+            if (badgePaq) {
+                if (modSeleccionado) {
+                    badgePaq.innerText = `Módulo Activo: ${modSeleccionado}`;
+                    badgePaq.className = "text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded";
+                } else {
+                    badgePaq.innerText = "Módulo no seleccionado";
+                    badgePaq.className = "text-xs font-bold text-ineRed bg-red-50 border border-red-200 px-3 py-1.5 rounded";
+                }
+            }
+
+            generarEtiquetasPorLote(modSeleccionado);
+            renderizarEtiquetasPaquete(modSeleccionado);
+        }
+
+        // GENERACIÓN DE ETIQUETAS POR LOTE (FILTRADAS POR MÓDULO)
+        function generarEtiquetasPorLote(modSeleccionado) {
+            const container = document.getElementById('contenedorEtiquetasLote');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (!modSeleccionado) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-4">Por favor, selecciona un módulo para ver sus etiquetas por lote.</div>`;
+                return;
+            }
+
+            if (!window.descargaInfoDB || window.descargaInfoDB.length === 0 || !sesionActualConfig) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-4">No hay datos suficientes. Sube tu archivo Excel primero.</div>`;
+                return;
+            }
+
+            const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
+            const distritoLocal = sesionActualConfig.distrito;
+
+            let registrosModulo = window.descargaInfoDB.filter(r => String(r.modulo).replace(/^0+/, '') === String(modSeleccionado).replace(/^0+/, ''));
+            if (registrosModulo.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-4">No hay registros para el Módulo ${modSeleccionado}.</div>`;
+                return;
+            }
+
+            registrosModulo.sort((a, b) => {
+                const entA = obtenerNombreEntidad(a.entidadCpv);
+                const entB = obtenerNombreEntidad(b.entidadCpv);
+                if (entA !== entB) return entA.localeCompare(entB);
+                return Number(a.seccion) - Number(b.seccion);
+            });
+
+            let registrosMismaEntidad = [];
+            let totalOtrasEntidades = 0;
+
+            registrosModulo.forEach(reg => {
+                if (esEntidadLocal(reg.entidadCpv, entidadLocal)) {
+                    registrosMismaEntidad.push(reg);
+                } else {
+                    totalOtrasEntidades += Number(reg.total) || 0;
+                }
+            });
+
+            let paquetesSecciones = [];
+            let currentBatchSections = [];
+            let currentBatchTotal = 0;
+
+            registrosMismaEntidad.forEach(reg => {
+                let credsRestantes = Number(reg.total) || 0;
+                const secNum = Number(reg.seccion);
+
+                if (credsRestantes <= 0) return;
+
+                if (currentBatchSections.length === 0) {
+                    currentBatchSections.push(secNum);
+                }
+
+                while (credsRestantes > 0) {
+                    let spaceLeft = 100 - currentBatchTotal;
+
+                    if (credsRestantes >= spaceLeft) {
+                        credsRestantes -= spaceLeft;
+                        currentBatchTotal += spaceLeft;
+                        
+                        if (!currentBatchSections.includes(secNum)) {
+                            currentBatchSections.push(secNum);
+                        }
+
+                        const minS = currentBatchSections[0];
+                        const maxS = currentBatchSections[currentBatchSections.length - 1];
+
+                        paquetesSecciones.push({
+                            minSec: minS,
+                            maxSec: maxS,
+                            totalCreds: currentBatchTotal
+                        });
+
+                        currentBatchTotal = 0;
+                        currentBatchSections = [];
+                        if (credsRestantes > 0) {
+                            currentBatchSections.push(secNum);
+                        }
+                    } else {
+                        currentBatchTotal += credsRestantes;
+                        if (!currentBatchSections.includes(secNum)) {
+                            currentBatchSections.push(secNum);
+                        }
+                        credsRestantes = 0;
+                    }
+                }
+            });
+
+            if (currentBatchTotal > 0) {
+                const minS = currentBatchSections[0];
+                const maxS = currentBatchSections[currentBatchSections.length - 1];
+                paquetesSecciones.push({
+                    minSec: minS,
+                    maxSec: maxS,
+                    totalCreds: currentBatchTotal
+                });
+            }
+
+            paquetesSecciones.forEach(paq => {
+                const leyenda = (paq.minSec === paq.maxSec) ? `Sección ${paq.minSec}` : `De la Sección ${paq.minSec} a la Sección ${paq.maxSec}`;
+                const tarjetaHtml = crearHtmlEtiquetaINE({
+                    entidad: entidadLocal,
+                    distrito: distritoLocal,
+                    modulo: modSeleccionado,
+                    leyendaSeccion: leyenda,
+                    totalCredenciales: paq.totalCreds,
+                    esOtrasEntidades: false
+                });
+                container.appendChild(tarjetaHtml);
+            });
+
+            if (totalOtrasEntidades > 0) {
+                const tarjetaOtrasHtml = crearHtmlEtiquetaINE({
+                    entidad: entidadLocal,
+                    distrito: distritoLocal,
+                    modulo: modSeleccionado,
+                    leyendaSeccion: `OTRAS ENTIDADES`,
+                    totalCredenciales: totalOtrasEntidades,
+                    esOtrasEntidades: true
+                });
+                container.appendChild(tarjetaOtrasHtml);
+            }
+        }
+
+        function crearHtmlEtiquetaINE(info) {
+            const wrapper = document.createElement('div');
+            wrapper.className = "etiqueta-ine border-2 border-slate-900 p-2.5 bg-white shadow-sm rounded space-y-1 font-sans w-full max-w-[280px] mx-auto";
+            
+            let seccionHtml = '';
+            if (info.esOtrasEntidades) {
+                seccionHtml = `
+                    <div class="text-[10px] font-extrabold text-slate-900 py-0.5 text-center bg-amber-100 border border-amber-300 rounded uppercase tracking-wider">
+                        OTRAS ENTIDADES
+                    </div>
+                `;
+            } else {
+                seccionHtml = `
+                    <div class="text-[10px] font-bold text-slate-900 py-0.5 text-center bg-slate-100 border border-slate-300 rounded uppercase">
+                        ${info.leyendaSeccion}
+                    </div>
+                `;
+            }
+
+            wrapper.innerHTML = `
+                <div class="flex items-center border-b-2 border-slate-900 pb-1">
+                    <img src="logo_ine_2026.png" alt="INE" class="h-4 object-contain">
+                </div>
+                <div class="text-[10px] space-y-0.5 font-bold text-slate-900">
+                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
+                        <span class="w-16">ENTIDAD:</span>
+                        <span class="border-b border-slate-900 flex-grow px-1 font-normal uppercase">${info.entidad}</span>
+                    </div>
+                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
+                        <span class="w-16">DTTO:</span>
+                        <span class="border-b border-slate-900 flex-grow px-1 font-normal">${info.distrito}</span>
+                    </div>
+                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
+                        <span class="w-16">MÓDULO:</span>
+                        <span class="border-b border-slate-900 flex-grow px-1 font-mono font-bold">${info.modulo}</span>
+                    </div>
+                </div>
+                ${seccionHtml}
+                <div class="space-y-0.5 pt-0.5 border-t border-slate-300">
+                    <p class="text-[8px] font-extrabold text-slate-700 uppercase">TOTAL DE:</p>
+                    <div class="flex items-center text-[10px] font-bold">
+                        <span class="w-20">CREDENCIALES:</span>
+                        <span class="border-b-2 border-slate-900 flex-grow px-1 font-mono text-xs font-black text-ineRed text-center">${info.totalCredenciales}</span>
+                    </div>
+                </div>
+            `;
+            return wrapper;
+        }
+
+        // RENDERIZAR ETIQUETAS POR PAQUETE (20 por hoja, 10 por columna, con Otras Entidades sumando credenciales pero no secciones)
+        function renderizarEtiquetasPaquete(modSeleccionado) {
             const container = document.getElementById('contenedorEtiquetasPaquete');
             if (!container) return;
             container.innerHTML = '';
 
             if (!modSeleccionado) {
-                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-2">Por favor, selecciona un módulo para generar las etiquetas.</div>`;
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-2">Por favor, selecciona un módulo en la pestaña de lotes.</div>`;
                 return;
             }
 
@@ -789,10 +995,7 @@
             const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
             const distritoLocal = sesionActualConfig.distrito;
 
-            // Buscar datos del módulo seleccionado
             const infoModObj = sesionActualConfig.modulosData.find(m => String(m.modulo).replace(/^0+/, '') === String(modSeleccionado).replace(/^0+/, '')) || { nombre: '', puesto: '' };
-
-            // Filtrar registros del módulo
             const regsMod = window.descargaInfoDB.filter(r => String(r.modulo).replace(/^0+/, '') === String(modSeleccionado).replace(/^0+/, ''));
 
             let itemsLocales = [];
@@ -809,12 +1012,11 @@
                 }
             });
 
-            // Ordenar secciones locales de menor a mayor
             itemsLocales.sort((a, b) => a.seccion - b.seccion);
 
-            // Agregar "Otras Entidades" si existe
+            // Agregar registro de "Otras Entidades" al final si existe
             if (sumOtrasCreds > 0) {
-                itemsLocales.push({ seccion: "OTRAS ENTIDADES", credenciales: sumOtrasCreds });
+                itemsLocales.push({ seccion: "OTRAS ENTIDADES", credenciales: sumOtrasCreds, esOtras: true });
             }
 
             if (itemsLocales.length === 0) {
@@ -850,13 +1052,11 @@
             const wrapper = document.createElement('div');
             wrapper.className = "etiqueta-paquete-print border-2 border-black p-3 bg-white shadow-sm space-y-2 font-sans text-xs w-full max-w-[550px] mx-auto";
 
-            // Separar el módulo en pares de 2 en 2 dígitos
             const modStr = String(data.modulo).padStart(5, '0');
             const m1 = modStr.slice(0, 2);
             const m2 = modStr.slice(2, 4);
             const m3 = modStr.slice(4);
 
-            // Dividir los items en columna izquierda (10) y columna derecha (10)
             let colIzq = [];
             let colDer = [];
             data.items.forEach((item, i) => {
@@ -864,32 +1064,38 @@
                 else colDer.push(item);
             });
 
-            // Rellenar hasta 10 filas para mantener el formato fijo
             while (colIzq.length < 10) colIzq.push({ seccion: '', credenciales: '' });
             while (colDer.length < 10) colDer.push({ seccion: '', credenciales: '' });
 
             let filasHtml = '';
-            let sumaSeccionesCount = 0;
-            let sumaCredencialesTotal = 0;
+            let totalSeccionesCount = 0;
+            let totalCredsIzq = 0;
+            let totalCredsDer = 0;
 
             for (let i = 0; i < 10; i++) {
                 const izq = colIzq[i];
                 const der = colDer[i];
 
-                if (izq.seccion !== '') sumaSeccionesCount++;
-                if (der.seccion !== '') sumaSeccionesCount++;
-                if (!isNaN(izq.credenciales)) sumaCredencialesTotal += Number(izq.credenciales) || 0;
-                if (!isNaN(der.credenciales)) sumaCredencialesTotal += Number(der.credenciales) || 0;
+                if (izq.seccion !== '') {
+                    if (!izq.esOtras) totalSeccionesCount++;
+                    totalCredsIzq += Number(izq.credenciales) || 0;
+                }
+                if (der.seccion !== '') {
+                    if (!der.esOtras) totalSeccionesCount++;
+                    totalCredsDer += Number(der.credenciales) || 0;
+                }
 
                 filasHtml += `
                     <tr class="border-b border-black">
-                        <td class="p-0.5 text-center font-mono font-bold uppercase text-[10px] h-5">${izq.seccion}</td>
-                        <td class="p-0.5 text-center font-mono text-[10px] h-5">${izq.credenciales !== '' ? izq.credenciales : ''}</td>
-                        <td class="p-0.5 text-center font-mono font-bold uppercase text-[10px] h-5 border-l border-black">${der.seccion}</td>
+                        <td class="p-0.5 text-center font-mono font-bold uppercase text-[10px] h-5 border-r border-black">${izq.seccion}</td>
+                        <td class="p-0.5 text-center font-mono text-[10px] h-5 border-r border-black">${izq.credenciales !== '' ? izq.credenciales : ''}</td>
+                        <td class="p-0.5 text-center font-mono font-bold uppercase text-[10px] h-5 border-r border-black">${der.seccion}</td>
                         <td class="p-0.5 text-center font-mono text-[10px] h-5">${der.credenciales !== '' ? der.credenciales : ''}</td>
                     </tr>
                 `;
             }
+
+            const granTotalCredenciales = totalCredsIzq + totalCredsDer;
 
             wrapper.innerHTML = `
                 <!-- ENCABEZADO -->
@@ -936,29 +1142,37 @@
                         <span class="border-b border-black w-8 text-center font-mono">${data.totalCajas}</span>
                     </div>
 
-                    <!-- TABLA DE SECCIONES (SÓLO LÍNEAS HORIZONTALES) -->
+                    <!-- TABLA DE SECCIONES (IDÉNTICA A LA IMAGEN) -->
                     <div class="border border-black">
                         <table class="w-full text-center border-collapse text-[10px]">
                             <thead>
                                 <tr class="bg-slate-100 border-b-2 border-black font-bold">
-                                    <th class="p-0.5 w-1/4">SECCIÓN</th>
-                                    <th class="p-0.5 w-1/4">CRED.</th>
-                                    <th class="p-0.5 w-1/4 border-l border-black">SECCIÓN</th>
-                                    <th class="p-0.5 w-1/4">CRED.</th>
+                                    <th class="p-1 w-1/4 border-r border-black">SECCIÓN</th>
+                                    <th class="p-1 w-1/4 border-r border-black">CRED.</th>
+                                    <th class="p-1 w-1/4 border-r border-black">SECCIÓN</th>
+                                    <th class="p-1 w-1/4">CRED.</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${filasHtml}
                             </tbody>
+                            <tfoot>
+                                <tr class="border-t-2 border-black bg-slate-50 font-bold">
+                                    <td class="p-1 text-left uppercase border-r border-black text-[9px]">TOTAL</td>
+                                    <td class="p-1 text-center font-mono border-r border-black text-[10px]">${totalCredsIzq > 0 ? totalCredsIzq : '0'}</td>
+                                    <td class="p-1 text-center font-mono border-r border-black text-[10px]"></td>
+                                    <td class="p-1 text-center font-mono text-[10px]">${totalCredsDer > 0 ? totalCredsDer : '0'}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
 
-                    <!-- TOTALES -->
+                    <!-- RESUMEN GENERAL -->
                     <div class="flex justify-between items-center pt-0.5 font-bold text-[10px] px-1">
-                        <div>TOTAL SECCIONES: <span class="font-mono">${sumaSeccionesCount}</span></div>
+                        <div>SECCIONES EN ESTA HOJA: <span class="font-mono">${totalSeccionesCount}</span></div>
                         <div class="flex items-center space-x-2">
                             <span>TOTAL CREDENCIALES:</span>
-                            <span class="border-b-2 border-black w-16 text-center font-mono font-black text-ineRed text-xs">${sumaCredencialesTotal}</span>
+                            <span class="border-b-2 border-black w-16 text-center font-mono font-black text-ineRed text-xs">${granTotalCredenciales}</span>
                         </div>
                     </div>
                 </div>
@@ -979,177 +1193,6 @@
                     <div class="pt-3 pb-1 text-center">
                         <div class="w-40 mx-auto border-b border-black mb-0.5"></div>
                         <span class="text-[9px] text-slate-600 uppercase">FIRMA</span>
-                    </div>
-                </div>
-            `;
-            return wrapper;
-        }
-
-        function generarEtiquetasPorLote() {
-            const container = document.getElementById('contenedorEtiquetasLote');
-            if (!container) return;
-            container.innerHTML = '';
-
-            if (!window.descargaInfoDB || window.descargaInfoDB.length === 0 || !sesionActualConfig) {
-                container.innerHTML = `<div class="text-center py-10 text-slate-400 italic col-span-4">No hay datos suficientes. Sube tu archivo Excel primero.</div>`;
-                return;
-            }
-
-            const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
-            const distritoLocal = sesionActualConfig.distrito;
-
-            let dataGlobalOrdenada = [...window.descargaInfoDB].sort((a, b) => {
-                if (a.modulo !== b.modulo) return a.modulo.localeCompare(b.modulo);
-                const entA = obtenerNombreEntidad(a.entidadCpv);
-                const entB = obtenerNombreEntidad(b.entidadCpv);
-                if (entA !== entB) return entA.localeCompare(entB);
-                return Number(a.seccion) - Number(b.seccion);
-            });
-
-            window.modulosPermitidos.forEach(mod => {
-                const registrosModulo = dataGlobalOrdenada.filter(r => String(r.modulo).replace(/^0+/, '') === String(mod).replace(/^0+/, ''));
-                if (registrosModulo.length === 0) return;
-
-                let registrosMismaEntidad = [];
-                let totalOtrasEntidades = 0;
-
-                registrosModulo.forEach(reg => {
-                    if (esEntidadLocal(reg.entidadCpv, entidadLocal)) {
-                        registrosMismaEntidad.push(reg);
-                    } else {
-                        totalOtrasEntidades += Number(reg.total) || 0;
-                    }
-                });
-
-                let paquetesSecciones = [];
-                let currentBatchSections = [];
-                let currentBatchTotal = 0;
-
-                registrosMismaEntidad.forEach(reg => {
-                    let credsRestantes = Number(reg.total) || 0;
-                    const secNum = Number(reg.seccion);
-
-                    if (credsRestantes <= 0) return;
-
-                    if (currentBatchSections.length === 0) {
-                        currentBatchSections.push(secNum);
-                    }
-
-                    while (credsRestantes > 0) {
-                        let spaceLeft = 100 - currentBatchTotal;
-
-                        if (credsRestantes >= spaceLeft) {
-                            credsRestantes -= spaceLeft;
-                            currentBatchTotal += spaceLeft;
-                            
-                            if (!currentBatchSections.includes(secNum)) {
-                                currentBatchSections.push(secNum);
-                            }
-
-                            const minS = currentBatchSections[0];
-                            const maxS = currentBatchSections[currentBatchSections.length - 1];
-
-                            paquetesSecciones.push({
-                                minSec: minS,
-                                maxSec: maxS,
-                                totalCreds: currentBatchTotal
-                            });
-
-                            currentBatchTotal = 0;
-                            currentBatchSections = [];
-                            if (credsRestantes > 0) {
-                                currentBatchSections.push(secNum);
-                            }
-                        } else {
-                            currentBatchTotal += credsRestantes;
-                            if (!currentBatchSections.includes(secNum)) {
-                                currentBatchSections.push(secNum);
-                            }
-                            credsRestantes = 0;
-                        }
-                    }
-                });
-
-                if (currentBatchTotal > 0) {
-                    const minS = currentBatchSections[0];
-                    const maxS = currentBatchSections[currentBatchSections.length - 1];
-                    paquetesSecciones.push({
-                        minSec: minS,
-                        maxSec: maxS,
-                        totalCreds: currentBatchTotal
-                    });
-                }
-
-                paquetesSecciones.forEach(paq => {
-                    const leyenda = (paq.minSec === paq.maxSec) ? `Sección ${paq.minSec}` : `De la Sección ${paq.minSec} a la Sección ${paq.maxSec}`;
-                    const tarjetaHtml = crearHtmlEtiquetaINE({
-                        entidad: entidadLocal,
-                        distrito: distritoLocal,
-                        modulo: mod,
-                        leyendaSeccion: leyenda,
-                        totalCredenciales: paq.totalCreds,
-                        esOtrasEntidades: false
-                    });
-                    container.appendChild(tarjetaHtml);
-                });
-
-                if (totalOtrasEntidades > 0) {
-                    const tarjetaOtrasHtml = crearHtmlEtiquetaINE({
-                        entidad: entidadLocal,
-                        distrito: distritoLocal,
-                        modulo: mod,
-                        leyendaSeccion: `OTRAS ENTIDADES`,
-                        totalCredenciales: totalOtrasEntidades,
-                        esOtrasEntidades: true
-                    });
-                    container.appendChild(tarjetaOtrasHtml);
-                }
-            });
-        }
-
-        function crearHtmlEtiquetaINE(info) {
-            const wrapper = document.createElement('div');
-            wrapper.className = "etiqueta-ine border-2 border-slate-900 p-2.5 bg-white shadow-sm rounded space-y-1 font-sans w-full max-w-[280px] mx-auto";
-            
-            let seccionHtml = '';
-            if (info.esOtrasEntidades) {
-                seccionHtml = `
-                    <div class="text-[10px] font-extrabold text-slate-900 py-0.5 text-center bg-amber-100 border border-amber-300 rounded uppercase tracking-wider">
-                        OTRAS ENTIDADES
-                    </div>
-                `;
-            } else {
-                seccionHtml = `
-                    <div class="text-[10px] font-bold text-slate-900 py-0.5 text-center bg-slate-100 border border-slate-300 rounded uppercase">
-                        ${info.leyendaSeccion}
-                    </div>
-                `;
-            }
-
-            wrapper.innerHTML = `
-                <div class="flex items-center border-b-2 border-slate-900 pb-1">
-                    <img src="logo_ine_2026.png" alt="INE" class="h-4 object-contain">
-                </div>
-                <div class="text-[10px] space-y-0.5 font-bold text-slate-900">
-                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
-                        <span class="w-16">ENTIDAD:</span>
-                        <span class="border-b border-slate-900 flex-grow px-1 font-normal uppercase">${info.entidad}</span>
-                    </div>
-                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
-                        <span class="w-16">DTTO:</span>
-                        <span class="border-b border-slate-900 flex-grow px-1 font-normal">${info.distrito}</span>
-                    </div>
-                    <div class="flex items-center border-b border-dashed border-slate-400 pb-0.5">
-                        <span class="w-16">MÓDULO:</span>
-                        <span class="border-b border-slate-900 flex-grow px-1 font-mono font-bold">${info.modulo}</span>
-                    </div>
-                </div>
-                ${seccionHtml}
-                <div class="space-y-0.5 pt-0.5 border-t border-slate-300">
-                    <p class="text-[8px] font-extrabold text-slate-700 uppercase">TOTAL DE:</p>
-                    <div class="flex items-center text-[10px] font-bold">
-                        <span class="w-20">CREDENCIALES:</span>
-                        <span class="border-b-2 border-slate-900 flex-grow px-1 font-mono text-xs font-black text-ineRed text-center">${info.totalCredenciales}</span>
                     </div>
                 </div>
             `;
