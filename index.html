@@ -35,16 +35,23 @@
         window.firebaseRemove = remove;
         window.firebaseGet = get;
 
-        // Monitor de sesiones concurrentes (Máximo 5)
+        // Monitor de sesiones concurrentes (Excluyendo al Admin del límite de 5)
         onValue(ref(db, 'sesiones_activas'), (snapshot) => {
             const data = snapshot.val() || {};
-            const keys = Object.keys(data);
+            let countActivos = 0;
+            
+            Object.values(data).forEach(ses => {
+                if (!ses.config?.isAdmin) {
+                    countActivos++;
+                }
+            });
+
             const semaforoEl = document.getElementById('semaforoConexiones');
             const contadorEl = document.getElementById('contadorConectados');
             
             if (semaforoEl && contadorEl) {
-                contadorEl.innerText = `${keys.length}/5 Conectados`;
-                if (keys.length >= 5) {
+                contadorEl.innerText = `${countActivos}/5 Conectados`;
+                if (countActivos >= 5) {
                     semaforoEl.className = "w-3.5 h-3.5 rounded-full bg-red-500 inline-block shadow-[0_0_10px_#ef4444] cursor-pointer animate-pulse";
                     semaforoEl.title = "Sistema Lleno (Clic aquí para acceso Admin)";
                 } else {
@@ -208,7 +215,7 @@
             <span id="semaforoConexiones" onclick="dispararAccesoAdmin()" class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer hover:scale-125 transition" title="Haz clic aquí para ingresar como Administrador"></span>
             <div>
                 <h1 class="text-sm font-bold tracking-wide leading-tight">INSTITUTO NACIONAL ELECTORAL</h1>
-                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.2)</span></p>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v5.3)</span></p>
             </div>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-1.5">
@@ -243,7 +250,7 @@
             <div id="adminContentPanel" class="space-y-4 hidden flex-grow overflow-y-auto">
                 <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs space-y-1">
                     <p class="font-bold text-amber-800">👑 Acceso de Administrador Autorizado (Mayito Cárdenas)</p>
-                    <p class="text-slate-600">Tus datos de administrador están seguros y protegidos. Aquí puedes supervisar las sesiones activas.</p>
+                    <p class="text-slate-600">Tus datos de administrador están protegidos y exentos de límites o borrados automáticos.</p>
                 </div>
 
                 <div>
@@ -309,7 +316,7 @@
         <section id="configSection" class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
             <div class="border-b border-slate-200 pb-3 mb-4">
                 <h2 class="text-base font-bold text-slate-800 uppercase">Configuración Inicial de Operación y Funcionarios</h2>
-                <p class="text-xs text-slate-500">Ingresa los datos generales y asigna el responsable de cada módulo (Capacidad: 5 operadores simultáneos).</p>
+                <p class="text-xs text-slate-500">Ingresa los datos generales y asigna el responsable de cada módulo.</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -496,7 +503,7 @@
         window.descargaInfoDB = [];
         window.modulosPermitidos = [];
         let sesionActualConfig = null;
-        let sesionsGlobalesCache = {};
+        let esAdministradorActivo = false;
 
         const CATALOGO_ENTIDADES = {
             1: "AGUASCALIENTES", 2: "BAJA CALIFORNIA", 3: "BAJA CALIFORNIA SUR", 4: "CAMPECHE", 5: "COAHUILA",
@@ -525,11 +532,10 @@
             return nombreCpv === nombreConfig || String(entCpvVal).trim() === '5' || String(entCpvVal).trim() === '05';
         }
 
-        // Sincronizar sesiones concurrentes (Máximo 5)
+        // Sincronizar sesiones concurrentes
         if (window.db && window.firebaseRef && window.firebaseOnValue) {
             window.firebaseOnValue(window.firebaseRef(window.db, 'sesiones_activas'), (snapshot) => {
                 const data = snapshot.val() || {};
-                sesionsGlobalesCache = data;
                 actualizarLogsAdmin(data);
 
                 if (typeof window.actualizarSesionesGlobales === 'function') {
@@ -595,27 +601,41 @@
                 return;
             }
 
-            // Validar límite de 5 operadores simultáneos
+            // Validar límite de 5 operadores simultáneos (Si no es Admin)
             if (window.db && window.firebaseRef && window.firebaseGet && window.firebaseSet) {
                 const sesionesRef = window.firebaseRef(window.db, 'sesiones_activas');
                 const snapshot = await window.firebaseGet(sesionesRef);
                 const sesiones = snapshot.val() || {};
-                const keys = Object.keys(sesiones);
+                
+                let countOtros = 0;
+                Object.keys(sesiones).forEach(id => {
+                    if (id !== window.sesionId && !sesiones[id].config?.isAdmin) {
+                        countOtros++;
+                    }
+                });
 
-                if (!sesiones[window.sesionId] && keys.length >= 5) {
-                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos). Por favor, espera a que un operador finalice.');
+                if (!esAdministradorActivo && !sesiones[window.sesionId] && countOtros >= 5) {
+                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos).');
                     return;
                 }
 
                 const entidadNombre = obtenerNombreEntidad(entidadInput);
                 const fechaHoraEntrada = new Date().toLocaleString();
-                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now(), entrada: fechaHoraEntrada };
+                const configData = { 
+                    entidad: entidadNombre, 
+                    distrito, 
+                    operador, 
+                    modulosData, 
+                    timestamp: Date.now(), 
+                    entrada: fechaHoraEntrada,
+                    isAdmin: esAdministradorActivo
+                };
 
                 await window.firebaseSet(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/config`), configData);
                 aplicarConfiguracionLocal(configData);
             } else {
                 const entidadNombre = obtenerNombreEntidad(entidadInput);
-                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now(), entrada: new Date().toLocaleString() };
+                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now(), entrada: new Date().toLocaleString(), isAdmin: esAdministradorActivo };
                 aplicarConfiguracionLocal(configData);
             }
         }
@@ -624,7 +644,7 @@
             sesionActualConfig = data;
             window.modulosPermitidos = data.modulosData.map(m => String(m.modulo).trim());
 
-            document.getElementById('lblOpName').innerText = data.operador;
+            document.getElementById('lblOpName').innerText = data.operador + (data.isAdmin ? " [ADMIN]" : "");
             document.getElementById('badgeOperador').classList.remove('hidden');
             document.getElementById('btnLiberar').classList.remove('hidden');
             document.getElementById('infoSesionDistrito').innerText = `Entidad: ${data.entidad} | Distrito: ${data.distrito} | Operador: ${data.operador}`;
@@ -673,21 +693,29 @@
 
         function confirmarSalidaMenu(e) {
             e.preventDefault();
-            const seguro = confirm("⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de regresar al Menú Principal? Tu sesión y avance temporal serán borrados para dejar el sistema listo para otro compañero.");
+            const seguro = confirm("⚠️ ¿Estás seguro de regresar al Menú Principal?");
             if (seguro) {
                 liberarSesionDirecto();
             }
         }
 
         function liberarSesion() {
-            const seguro = confirm('⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de cerrar sesión? Tu avance y datos temporales serán borrados para dejar el sistema listo para el siguiente usuario de los 5 permitidos.');
+            if (esAdministradorActivo) {
+                const seguro = confirm('👑 Sesión de Administrador detectada.\n\nTus datos de administrador están protegidos y no se borrarán. ¿Deseas salir al Menú Principal?');
+                if (seguro) {
+                    window.location.href = "https://registro03coah.github.io/mimenu/index.html";
+                }
+                return;
+            }
+
+            const seguro = confirm('⚠️ ¿Estás seguro de cerrar sesión? Tu avance temporal será borrado para dejar el sitio libre.');
             if (seguro) {
                 liberarSesionDirecto();
             }
         }
 
         function liberarSesionDirecto() {
-            if (window.db && window.firebaseRef && window.firebaseRemove) {
+            if (!esAdministradorActivo && window.db && window.firebaseRef && window.firebaseRemove) {
                 window.firebaseRemove(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}`))
                     .then(() => {
                         localStorage.removeItem('sesion_id_operador');
@@ -699,7 +727,7 @@
             }
         }
 
-        // ACCESO ADMINISTRADOR AL TOCAR EL SEMÁFORO VERDE/ROJO
+        // ACCESO ADMINISTRADOR AL TOCAR EL SEMÁFORO
         function dispararAccesoAdmin() {
             document.getElementById('adminPasswordInput').value = '';
             document.getElementById('adminPasswordBox').classList.remove('hidden');
@@ -715,8 +743,16 @@
         function verificarContraseñaAdmin() {
             const pass = document.getElementById('adminPasswordInput').value;
             if (pass === 'charro') {
+                esAdministradorActivo = true;
+                if (sesionActualConfig) {
+                    sesionActualConfig.isAdmin = true;
+                    if (window.db && window.firebaseRef && window.firebaseSet) {
+                        window.firebaseSet(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/config`), sesionActualConfig);
+                    }
+                }
                 document.getElementById('adminPasswordBox').classList.add('hidden');
                 document.getElementById('adminContentPanel').classList.remove('hidden');
+                alert('¡Acceso de Administrador concedido con éxito! Tus datos e historial están protegidos.');
             } else {
                 alert('Contraseña incorrecta.');
                 document.getElementById('adminPasswordInput').value = '';
@@ -738,22 +774,21 @@
                 const div = document.createElement('div');
                 div.className = "bg-white p-2 rounded border border-slate-200 text-xs space-y-0.5";
                 div.innerHTML = `
-                    <div class="font-bold text-ineRed">Operador ${idx + 1}: ${cfg.operador || 'Anónimo'}</div>
+                    <div class="font-bold text-ineRed">Operador ${idx + 1}: ${cfg.operador || 'Anónimo'} ${cfg.isAdmin ? '<span class="text-amber-600">[ADMIN]</span>' : ''}</div>
                     <div>Entidad: ${cfg.entidad || 'N/A'} | Distrito: ${cfg.distrito || 'N/A'}</div>
-                    <div class="text-[10px] text-slate-500">Entrada: ${cfg.entrada || 'Hora desconocida'} | Sesión ID: <span class="font-mono text-indigo-600">${id}</span></div>
+                    <div class="text-[10px] text-slate-500">Entrada: ${cfg.entrada || 'Hora desconocida'}</div>
                 `;
                 logsContainer.appendChild(div);
             });
         }
 
         async function solicitarBorradoTotal() {
-            const pass = prompt("🛡️ CONFIRMACIÓN DE ADMINISTRADOR:\nEscribe la contraseña de administrador para realizar el borrado total de sesiones activas:");
+            const pass = prompt("🛡️ CONFIRMACIÓN DE ADMINISTRADOR:\nEscribe la contraseña para el borrado total de sesiones:");
             if (pass === 'charro') {
                 if (window.db && window.firebaseRef && window.firebaseRemove) {
                     await window.firebaseRemove(window.firebaseRef(window.db, 'sesiones_activas'));
                 }
-                localStorage.clear();
-                alert('¡Borrado total exitoso! Todas las sesiones concurrentes han sido reiniciadas.');
+                alert('¡Borrado total exitoso!');
                 location.reload();
             } else if (pass !== null) {
                 alert('Contraseña incorrecta.');
@@ -792,13 +827,12 @@
                     if (String(reg.modulo).replace(/^0+/, '') === String(mod).replace(/^0+/, '')) {
                         const devEnt = Number(reg.devueltasEntrega || 0);
                         const retiros = Number(reg.retiradasMac || 0);
-                        const totalReg = Number(reg.total || 0);
 
                         totalDevEnt += devEnt;
                         totalRetiros += retiros;
 
                         if (!esEntidadLocal(reg.entidadCpv, entidadLocal)) {
-                            totalOtras += totalReg;
+                            totalOtras += devEnt;
                         }
                         countReg++;
                     }
@@ -847,8 +881,8 @@
                         const esValido = window.modulosPermitidos.some(m => String(m).trim() === moduloVal || String(m).trim().replace(/^0+/, '') === modClean);
 
                         if (esValido) {
-                            const totalVal = Number(row[33] || 0);
-                            if (totalVal > 0) {
+                            const devEntVal = Number(row[22] || 0);
+                            if (devEntVal >= 0) {
                                 const registro = {
                                     entidadTramite: obtenerNombreEntidad(row[1] || '5'),
                                     distrito: String(row[4] || '3'),
@@ -860,11 +894,11 @@
                                     sobrantes: Number(row[15] || 0),
                                     anexasIndividual: Number(row[17] || 0),
                                     anexasReimpresion: Number(row[19] || 0),
-                                    devueltasEntrega: Number(row[22] || 0),
+                                    devueltasEntrega: devEntVal,
                                     retiradasMac: Number(row[25] || 0),
                                     devueltasTerceros: Number(row[26] || 0),
                                     capturadas: Number(row[29] || 0),
-                                    total: totalVal
+                                    total: Number(row[33] || 0)
                                 };
                                 nuevosRegistros.push(registro);
                             }
@@ -1056,10 +1090,13 @@
             let totalOtrasEntidades = 0;
 
             registrosModulo.forEach(reg => {
-                if (esEntidadLocal(reg.entidadCpv, entidadLocal)) {
-                    registrosMismaEntidad.push(reg);
-                } else {
-                    totalOtrasEntidades += Number(reg.devueltasEntrega || reg.total) || 0;
+                const devEnt = Number(reg.devueltasEntrega || 0);
+                if (devEnt > 0) {
+                    if (esEntidadLocal(reg.entidadCpv, entidadLocal)) {
+                        registrosMismaEntidad.push(reg);
+                    } else {
+                        totalOtrasEntidades += devEnt;
+                    }
                 }
             });
 
@@ -1068,7 +1105,7 @@
             let currentBatchTotal = 0;
 
             registrosMismaEntidad.forEach(reg => {
-                let credsRestantes = Number(reg.devueltasEntrega || reg.total) || 0;
+                let credsRestantes = Number(reg.devueltasEntrega || 0);
                 const secNum = Number(reg.seccion);
 
                 if (credsRestantes <= 0) return;
