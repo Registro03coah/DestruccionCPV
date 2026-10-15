@@ -35,20 +35,14 @@
         window.firebaseRemove = remove;
         window.firebaseGet = get;
 
-        const statusIcon = document.getElementById('firebaseStatus');
-        if (statusIcon) {
-            statusIcon.innerText = "🟢 Conectado a Firebase";
-            statusIcon.className = "text-emerald-400 font-semibold";
-        }
-
-        // Sincronizar sesiones concurrentes (Máximo 5)
+        // Monitor de sesiones concurrentes (Máximo 5)
         onValue(ref(db, 'sesiones_activas'), (snapshot) => {
             const data = snapshot.val() || {};
             const keys = Object.keys(data);
             const contadorEl = document.getElementById('contadorConectados');
             if (contadorEl) {
                 contadorEl.innerText = `${keys.length}/5 Conectados`;
-                contadorEl.className = keys.length >= 5 ? "text-xs font-bold px-3 py-1 rounded-full bg-red-600 text-white" : "text-xs font-bold px-3 py-1 rounded-full bg-emerald-600 text-white";
+                contadorEl.className = keys.length >= 5 ? "text-xs font-bold px-2.5 py-1 rounded-full bg-red-600 text-white font-mono" : "text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white font-mono";
             }
             if (typeof window.actualizarSesionesGlobales === 'function') {
                 window.actualizarSesionesGlobales(data);
@@ -82,10 +76,10 @@
             width: 100% !important;
         }
 
-        /* Botón Flotante Superior Derecho con Imagen Circular */
+        /* Botón Flotante Superior Derecho con Imagen Circular y Expansión */
         .btn-regresar-menu-top {
             position: fixed;
-            top: 15px;
+            top: 12px;
             right: 20px;
             background: #ffffff;
             color: #1e293b;
@@ -99,9 +93,12 @@
             font-size: 0.8rem;
             font-weight: 700;
             border: 2px solid #b91c1c;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            z-index: 9999;
-            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            z-index: 99999;
+            transition: all 0.4s ease;
+            max-width: 48px;
+            overflow: hidden;
+            white-space: nowrap;
         }
 
         .btn-regresar-menu-top img {
@@ -110,13 +107,23 @@
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid #b91c1c;
+            flex-shrink: 0;
+        }
+
+        .btn-regresar-menu-top span {
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
         .btn-regresar-menu-top:hover {
+            max-width: 180px;
             background: #b91c1c;
             color: #ffffff;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(185, 28, 28, 0.5);
+            box-shadow: 0 6px 20px rgba(185, 28, 28, 0.6);
+        }
+
+        .btn-regresar-menu-top:hover span {
+            opacity: 1;
         }
 
         @media print {
@@ -124,7 +131,7 @@
                 size: landscape;
                 margin: 5mm;
             }
-            header, nav, #configSection, .no-print, footer, .btn-regresar-menu-top {
+            header, nav, #configSection, .no-print, footer, .btn-regresar-menu-top, .comic-banner {
                 display: none !important;
             }
             body {
@@ -171,42 +178,72 @@
         }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between pt-16">
 
-    <!-- Botón Flotante Superior Derecho con la imagen mayito admin.jpeg -->
-    <a href="#" onclick="confirmarSalidaMenu(event)" class="btn-regresar-menu-top no-print" title="Regresar al Menú Principal">
+    <!-- Botón Flotante Superior Derecho con Imagen Circular y Animación -->
+    <a href="#" onclick="confirmarSalidaMenu(event)" class="btn-regresar-menu-top no-print" title="Menú Principal">
         <img src="mayito admin.jpeg" alt="Mayito Admin" onerror="this.src='https://via.placeholder.com/40'">
         <span>Menú Principal</span>
     </a>
 
-    <!-- Header Institucional -->
-    <header class="bg-ineDark text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print">
-        <div>
-            <h1 class="text-xl font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
-            <p class="text-xs text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-2">(v4.8)</span></p>
+    <!-- Header Fijo (Sticky) -->
+    <header class="bg-ineDark text-white shadow-md py-3 px-6 flex flex-col md:flex-row justify-between items-center gap-2 no-print fixed top-0 left-0 right-0 z-50">
+        <div class="flex items-center space-x-2.5">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-[0_0_8px_#10b981]" title="Conectado"></span>
+            <div>
+                <h1 class="text-base font-bold tracking-wide">INSTITUTO NACIONAL ELECTORAL</h1>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control de Etiquetas CPV <span class="text-amber-400 font-mono ml-1">(v4.9)</span></p>
+            </div>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-2">
-            <span id="contadorConectados" class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-600 text-white">0/5 Conectados</span>
-            <span id="firebaseStatus" class="text-xs text-amber-300">🔴 Conectando a Firebase...</span>
-            <span id="badgeOperador" class="bg-ineRed text-xs font-semibold px-3 py-1 rounded-full uppercase hidden">Operador: <span id="lblOpName"></span></span>
+            <span id="contadorConectados" class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white font-mono">0/5 Conectados</span>
+            <button onclick="abrirConfiguracion()" id="badgeOperador" class="bg-ineRed hover:bg-red-800 text-xs font-semibold px-3 py-1.5 rounded-full uppercase transition shadow hidden flex items-center space-x-1.5 cursor-pointer" title="Hacer clic para editar configuración">
+                <i class="fas.fa-user-gear"></i><span>Operador: <span id="lblOpName"></span></span>
+            </button>
             <button onclick="liberarSesion()" id="btnLiberar" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 px-3 rounded transition hidden">Cerrar Sesión</button>
-            <button onclick="solicitarBorradoAdmin()" class="bg-red-900 hover:bg-black text-rose-200 text-xs font-bold py-1.5 px-3 rounded transition border border-rose-700">🛡️ Borrado Total (Admin)</button>
+            <button onclick="abrirModalAdmin()" id="btnAdminPanel" class="bg-indigo-900 hover:bg-black text-indigo-200 text-xs font-bold py-1.5 px-3 rounded transition border border-indigo-700 hidden">🛡️ Panel Admin</button>
         </div>
     </header>
 
-    <!-- MODAL DE CONTRASEÑA ADMIN -->
-    <div id="adminModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl border border-slate-300 space-y-4">
-            <div class="text-center">
-                <h3 class="text-base font-bold text-slate-800">Autenticación de Administrador</h3>
-                <p class="text-xs text-slate-500 mt-1">Ingresa la contraseña de administrador y presiona Enter.</p>
+    <!-- MODAL DE CONTRASEÑA / PANEL ADMIN -->
+    <div id="adminModal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl p-6 max-w-lg w-full shadow-2xl border border-slate-300 space-y-4 max-h-[90vh] flex flex-col">
+            <div class="text-center border-b pb-3">
+                <div class="flex justify-center mb-2">
+                    <img src="mayito admin.jpeg" class="w-12 h-12 rounded-full border-2 border-ineRed object-cover" alt="Admin">
+                </div>
+                <h3 class="text-base font-bold text-slate-800">Panel de Administración General</h3>
+                <p class="text-xs text-slate-500">Ingresa la contraseña para acceder a los controles de Admin y Auditoría.</p>
             </div>
-            <div>
-                <input type="password" id="adminPasswordInput" placeholder="Contraseña secreta" onkeydown="if(event.key === 'Enter') verificarContraseñaAdmin()" class="w-full border border-slate-300 rounded p-2.5 text-xs text-center font-mono tracking-widest focus:ring-2 focus:ring-ineRed focus:outline-none">
+            
+            <div id="adminPasswordBox" class="space-y-3">
+                <input type="password" id="adminPasswordInput" placeholder="Contraseña de Administrador" onkeydown="if(event.key === 'Enter') verificarContraseñaAdmin()" class="w-full border border-slate-300 rounded p-2.5 text-xs text-center font-mono tracking-widest focus:ring-2 focus:ring-ineRed focus:outline-none">
+                <div class="flex space-x-2">
+                    <button onclick="cerrarModalAdmin()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded text-xs transition">Cancelar</button>
+                    <button onclick="verificarContraseñaAdmin()" class="w-1/2 bg-ineRed hover:bg-red-800 text-white font-bold py-2 rounded text-xs transition">Ingresar</button>
+                </div>
             </div>
-            <div class="flex space-x-2">
-                <button onclick="cerrarModalAdmin()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded text-xs transition">Cancelar</button>
-                <button onclick="verificarContraseñaAdmin()" class="w-1/2 bg-ineRed hover:bg-red-800 text-white font-bold py-2 rounded text-xs transition">Confirmar</button>
+
+            <!-- CONTENIDO EXCLUSIVO ADMIN (OCULTO HASTA AUTENTICARSE) -->
+            <div id="adminContentPanel" class="space-y-4 hidden flex-grow overflow-y-auto">
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs space-y-1">
+                    <p class="font-bold text-amber-800">👑 Acceso de Administrador Autorizado (Mayito Cárdenas)</p>
+                    <p class="text-slate-600">Tienes super-acceso ilimitado para inspeccionar sesiones activas y realizar borrados globales.</p>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold text-slate-700 uppercase mb-2">📋 Logs de Auditoría (Operadores Activos / Historial)</h4>
+                    <div id="adminLogsContainer" class="border border-slate-200 rounded-lg max-h-48 overflow-y-auto p-2 bg-slate-50 text-[11px] space-y-1 font-mono">
+                        Cargando registros...
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t flex justify-between items-center">
+                    <button onclick="solicitarBorradoTotal()" class="bg-red-900 hover:bg-black text-rose-200 text-xs font-bold py-2 px-4 rounded transition border border-rose-700">
+                        🛡️ Borrado Total de Sesiones (Firebase)
+                    </button>
+                    <button onclick="cerrarModalAdmin()" class="bg-slate-800 text-white text-xs font-bold py-2 px-4 rounded">Cerrar Panel</button>
+                </div>
             </div>
         </div>
     </div>
@@ -243,11 +280,21 @@
     <!-- Contenido Principal -->
     <main class="flex-grow container mx-auto px-4 py-6 max-w-[98%] space-y-6">
 
+        <!-- MENSAJE ESTILO CÓMIC DE USO TEMPORAL -->
+        <div id="comicBanner" class="comic-banner bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 shadow-sm flex items-center space-x-4 no-print">
+            <img src="mayito admin.jpeg" alt="Mayito Admin" class="w-14 h-14 rounded-full border-2 border-ineRed object-cover flex-shrink-0 shadow-md">
+            <div class="space-y-0.5 text-xs text-slate-700 flex-grow">
+                <p class="font-black text-amber-900 uppercase tracking-wide">¡Aviso Importante del Sistema! ⚠️</p>
+                <p>Esta página es de <strong>uso temporal</strong>. Los avances y la información cargada no se guardan de forma permanente en servidores públicos; cuando cierres tu sesión o la ventana, tu espacio de trabajo se liberará automáticamente para otro de los 5 usuarios permitidos. ¡Trabaja con confianza y éxito! — <em>Atentamente, Admin Mayito Cárdenas</em></p>
+            </div>
+            <button onclick="document.getElementById('comicBanner').style.display='none'" class="text-slate-400 hover:text-slate-600 font-bold px-2">✕</button>
+        </div>
+
         <!-- PASO 1: CONFIGURACIÓN INICIAL -->
         <section id="configSection" class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
             <div class="border-b border-slate-200 pb-3 mb-4">
                 <h2 class="text-base font-bold text-slate-800 uppercase">Configuración Inicial de Operación y Funcionarios</h2>
-                <p class="text-xs text-slate-500">Ingresa los datos generales y asigna el responsable de cada módulo (Capacidad máxima: 5 operadores simultáneos).</p>
+                <p class="text-xs text-slate-500">Ingresa los datos generales y asigna el responsable de cada módulo (Capacidad: 5 operadores simultáneos).</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -325,6 +372,7 @@
                     </div>
                 </div>
 
+                <!-- 3 RECTÁNGULOS DE MÓDULOS CON DETALLE DE CREDENCIALES, RETIROS Y OTRAS ENTIDADES -->
                 <div id="totalesModulosGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
 
                 <div class="bg-white rounded-xl shadow-md p-6 border border-slate-200">
@@ -433,6 +481,7 @@
         window.descargaInfoDB = [];
         window.modulosPermitidos = [];
         let sesionActualConfig = null;
+        let sesionesGlobalesCache = {};
 
         const CATALOGO_ENTIDADES = {
             1: "AGUASCALIENTES", 2: "BAJA CALIFORNIA", 3: "BAJA CALIFORNIA SUR", 4: "CAMPECHE", 5: "COAHUILA",
@@ -459,6 +508,27 @@
             const nombreCpv = obtenerNombreEntidad(entCpvVal);
             const nombreConfig = obtenerNombreEntidad(entidadConfig);
             return nombreCpv === nombreConfig || String(entCpvVal).trim() === '5' || String(entCpvVal).trim() === '05';
+        }
+
+        // Sincronizar sesiones concurrentes (Máximo 5) y logs de auditoría en tiempo real
+        if (window.db && window.firebaseRef && window.firebaseOnValue) {
+            window.firebaseOnValue(window.firebaseRef(window.db, 'sesiones_activas'), (snapshot) => {
+                const data = snapshot.val() || {};
+                sesionsGlobalesCache = data;
+                const keys = Object.keys(data);
+                const contadorEl = document.getElementById('contadorConectados');
+                if (contadorEl) {
+                    contadorEl.innerText = `${keys.length}/5 Conectados`;
+                    contadorEl.className = keys.length >= 5 ? "text-xs font-bold px-2.5 py-1 rounded-full bg-red-600 text-white font-mono" : "text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white font-mono";
+                }
+                
+                // Actualizar logs en panel admin
+                actualizarLogsAdmin(data);
+
+                if (typeof window.actualizarSesionesGlobales === 'function') {
+                    window.actualizarSesionesGlobales(data);
+                }
+            });
         }
 
         function generarCuadrosModulos() {
@@ -518,26 +588,29 @@
                 return;
             }
 
-            // Validar límite de 5 operadores simultáneos
+            const esAdmin = operador.toLowerCase().includes('mario') || operador.toLowerCase().includes('carrivers') || operador.toLowerCase().includes('admin');
+
+            // Validar límite de 5 operadores simultáneos (Excepto Admin Mayito)
             if (window.db && window.firebaseRef && window.firebaseGet && window.firebaseSet) {
                 const sesionesRef = window.firebaseRef(window.db, 'sesiones_activas');
                 const snapshot = await window.firebaseGet(sesionesRef);
                 const sesiones = snapshot.val() || {};
                 const keys = Object.keys(sesiones);
 
-                if (!sesiones[window.sesionId] && keys.length >= 5) {
-                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos). Por favor, espera a que un operador finalice su sesión.');
+                if (!sesiones[window.sesionId] && keys.length >= 5 && !esAdmin) {
+                    alert('⚠️ El sistema se encuentra a su máxima capacidad (5/5 operadores activos). Como administrador, Mayito Cárdenas puede acceder en cualquier momento.');
                     return;
                 }
 
                 const entidadNombre = obtenerNombreEntidad(entidadInput);
-                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now() };
+                const fechaHoraEntrada = new Date().toLocaleString();
+                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now(), entrada: fechaHoraEntrada };
 
                 await window.firebaseSet(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/config`), configData);
                 aplicarConfiguracionLocal(configData);
             } else {
                 const entidadNombre = obtenerNombreEntidad(entidadInput);
-                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now() };
+                const configData = { entidad: entidadNombre, distrito, operador, modulosData, timestamp: Date.now(), entrada: new Date().toLocaleString() };
                 aplicarConfiguracionLocal(configData);
             }
         }
@@ -552,6 +625,11 @@
             document.getElementById('lblOpName').innerText = etiquetaRol;
             document.getElementById('badgeOperador').classList.remove('hidden');
             document.getElementById('btnLiberar').classList.remove('hidden');
+            
+            if (esAdmin) {
+                document.getElementById('btnAdminPanel').classList.remove('hidden');
+            }
+
             document.getElementById('infoSesionDistrito').innerText = `Entidad: ${data.entidad} | Distrito: ${data.distrito} | Operador: ${etiquetaRol}`;
 
             document.getElementById('configSection').classList.add('hidden');
@@ -569,7 +647,6 @@
             sincronizarDatosOperadorFirebase();
         }
 
-        // Sincronizar datos exclusivos de este operador en Firebase
         function sincronizarDatosOperadorFirebase() {
             if (!window.db || !window.firebaseRef || !window.firebaseOnValue) return;
             window.firebaseOnValue(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}/datos`), (snapshot) => {
@@ -589,16 +666,25 @@
             }
         }
 
+        function abrirConfiguracion() {
+            if (confirm("¿Deseas modificar los datos de configuración inicial y del operador actual?")) {
+                document.getElementById('configSection').classList.remove('hidden');
+                document.getElementById('workSection').classList.add('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
         function confirmarSalidaMenu(e) {
             e.preventDefault();
-            const seguro = confirm("⚠️ ADVERTENCIA: Todo tu avance y los datos cargados en tu sesión actual serán borrados. ¿Estás seguro de querer regresar al menú principal y liberar el sistema para otra persona?");
+            const seguro = confirm("⚠️ ADVERTENCIA AMIGABLE:\n\nAl regresar al Menú Principal, tu sesión actual se cerrará y todo el avance no guardado será borrado para dejar el sistema listo para otro compañero. ¿Estás seguro de querer salir?");
             if (seguro) {
                 liberarSesionDirecto();
             }
         }
 
         function liberarSesion() {
-            if (confirm('¿Deseas cerrar sesión y liberar tu espacio de trabajo?')) {
+            const seguro = confirm('⚠️ ¡Aviso Amigable!\n\n¿Estás seguro de cerrar sesión? Tu avance y datos temporales serán borrados para dejar el sistema listo para el siguiente usuario de los 5 permitidos.');
+            if (seguro) {
                 liberarSesionDirecto();
             }
         }
@@ -616,8 +702,10 @@
             }
         }
 
-        function solicitarBorradoAdmin() {
+        function abrirModalAdmin() {
             document.getElementById('adminPasswordInput').value = '';
+            document.getElementById('adminPasswordBox').classList.remove('hidden');
+            document.getElementById('adminContentPanel').classList.add('hidden');
             document.getElementById('adminModal').classList.remove('hidden');
             document.getElementById('adminPasswordInput').focus();
         }
@@ -626,19 +714,51 @@
             document.getElementById('adminModal').classList.add('hidden');
         }
 
-        async function verificarContraseñaAdmin() {
+        function verificarContraseñaAdmin() {
             const pass = document.getElementById('adminPasswordInput').value;
             if (pass === 'charro') {
-                cerrarModalAdmin();
+                document.getElementById('adminPasswordBox').classList.add('hidden');
+                document.getElementById('adminContentPanel').classList.remove('hidden');
+            } else {
+                alert('Contraseña incorrecta.');
+                document.getElementById('adminPasswordInput').value = '';
+            }
+        }
+
+        function actualizarLogsAdmin(data) {
+            const logsContainer = document.getElementById('adminLogsContainer');
+            if (!logsContainer) return;
+            const keys = Object.keys(data);
+            if (keys.length === 0) {
+                logsContainer.innerHTML = `<span class="text-slate-400 italic">No hay operadores conectados actualmente.</span>`;
+                return;
+            }
+            logsContainer.innerHTML = '';
+            keys.forEach((id, idx) => {
+                const ses = data[id];
+                const cfg = ses.config || {};
+                const div = document.createElement('div');
+                div.className = "bg-white p-2 rounded border border-slate-200 text-xs space-y-0.5";
+                div.innerHTML = `
+                    <div class="font-bold text-ineRed">Operador ${idx + 1}: ${cfg.operador || 'Anónimo'}</div>
+                    <div>Entidad: ${cfg.entidad || 'N/A'} | Distrito: ${cfg.distrito || 'N/A'}</div>
+                    <div class="text-[10px] text-slate-500">Entrada: ${cfg.entrada || 'Hora desconocida'} | Sesión ID: <span class="font-mono text-indigo-600">${id}</span></div>
+                `;
+                logsContainer.appendChild(div);
+            });
+        }
+
+        async function solicitarBorradoTotal() {
+            const pass = prompt("🛡️ CONFIRMACIÓN DE ADMINISTRADOR:\nEscribe la contraseña de administrador para realizar el borrado total de sesiones activas:");
+            if (pass === 'charro') {
                 if (window.db && window.firebaseRef && window.firebaseRemove) {
                     await window.firebaseRemove(window.firebaseRef(window.db, 'sesiones_activas'));
                 }
                 localStorage.clear();
-                alert('¡Borrado total exitoso! Todas las sesiones concurrentes se han reiniciado.');
+                alert('¡Borrado total exitoso! Todas las sesiones concurrentes han sido reiniciadas.');
                 location.reload();
-            } else {
+            } else if (pass !== null) {
                 alert('Contraseña incorrecta.');
-                document.getElementById('adminPasswordInput').value = '';
             }
         }
 
@@ -662,23 +782,55 @@
 
         function renderizarTarjetasTotalesDinamicas() {
             const grid = document.getElementById('totalesModulosGrid');
-            if (!grid || !window.modulosPermitidos) return;
+            if (!grid || !window.modulosPermitidos || !sesionActualConfig) return;
             grid.innerHTML = '';
 
+            const entidadLocal = obtenerNombreEntidad(sesionActualConfig.entidad);
+
             window.modulosPermitidos.forEach((mod, idx) => {
+                let totalCred = 0, totalRetiros = 0, totalOtras = 0, countReg = 0;
+
+                window.descargaInfoDB.forEach(reg => {
+                    if (String(reg.modulo).replace(/^0+/, '') === String(mod).replace(/^0+/, '')) {
+                        const creds = Number(reg.devueltasEntrega || reg.total) || 0;
+                        const retiros = Number(reg.retiradasMac || 0);
+                        totalCred += creds;
+                        totalRetiros += retiros;
+
+                        if (!esEntidadLocal(reg.entidadCpv, entidadLocal)) {
+                            totalOtras += creds;
+                        }
+                        countReg++;
+                    }
+                });
+
                 const color = [
                     { bg: 'bg-indigo-50', border: 'border-indigo-200', textTitle: 'text-indigo-600', textVal: 'text-indigo-900', badgeBg: 'bg-indigo-200', badgeText: 'text-indigo-800' },
                     { bg: 'bg-emerald-50', border: 'border-emerald-200', textTitle: 'text-emerald-600', textVal: 'text-emerald-900', badgeBg: 'bg-emerald-200', badgeText: 'text-emerald-800' },
                     { bg: 'bg-rose-50', border: 'border-rose-200', textTitle: 'text-rose-600', textVal: 'text-rose-900', badgeBg: 'bg-rose-200', badgeText: 'text-rose-800' }
                 ][idx % 3];
+
                 const div = document.createElement('div');
-                div.className = `${color.bg} border ${color.border} rounded-xl p-4 shadow-sm flex justify-between items-center`;
+                div.className = `${color.bg} border ${color.border} rounded-xl p-4 shadow-sm space-y-2`;
                 div.innerHTML = `
-                    <div>
+                    <div class="flex justify-between items-center border-b pb-2 border-slate-200">
                         <span class="text-xs font-bold ${color.textTitle} uppercase">Módulo ${mod}</span>
-                        <h3 class="text-lg font-extrabold ${color.textVal}" id="totalMod_${mod}">0 Credenciales</h3>
+                        <span class="${color.badgeBg} ${color.badgeText} px-2 py-0.5 rounded font-bold text-[10px]">${countReg} Registros</span>
                     </div>
-                    <div class="${color.badgeBg} ${color.badgeText} p-3 rounded-lg font-bold text-xs" id="countMod_${mod}">0 Registros</div>
+                    <div class="grid grid-cols-3 gap-1 text-center font-mono">
+                        <div class="bg-white/85 p-1.5 rounded border border-slate-200">
+                            <span class="block text-[9px] text-slate-500 font-bold uppercase">Credenciales</span>
+                            <span class="text-xs font-black ${color.textVal}">${totalCred.toLocaleString()}</span>
+                        </div>
+                        <div class="bg-white/85 p-1.5 rounded border border-slate-200">
+                            <span class="block text-[9px] text-slate-500 font-bold uppercase">Retiros</span>
+                            <span class="text-xs font-black text-indigo-700">${totalRetiros.toLocaleString()}</span>
+                        </div>
+                        <div class="bg-white/85 p-1.5 rounded border border-slate-200">
+                            <span class="block text-[9px] text-slate-500 font-bold uppercase">Otras Ent.</span>
+                            <span class="text-xs font-black text-amber-700">${totalOtras.toLocaleString()}</span>
+                        </div>
+                    </div>
                 `;
                 grid.appendChild(div);
             });
@@ -781,20 +933,7 @@
         }
 
         function calcularTotalesModulos() {
-            if (!window.modulosPermitidos) return;
-            window.modulosPermitidos.forEach(mod => {
-                let totalCred = 0, countReg = 0;
-                window.descargaInfoDB.forEach(reg => {
-                    if (String(reg.modulo).replace(/^0+/, '') === String(mod).replace(/^0+/, '')) {
-                        totalCred += Number(reg.total) || 0;
-                        countReg++;
-                    }
-                });
-                const elTot = document.getElementById(`totalMod_${mod}`);
-                const elCnt = document.getElementById(`countMod_${mod}`);
-                if (elTot) elTot.innerText = `${totalCred.toLocaleString()} Credenciales`;
-                if (elCnt) elCnt.innerText = `${countReg} Registros`;
-            });
+            renderizarTarjetasTotalesDinamicas();
         }
 
         function renderizarTablaDescargaInfo() {
