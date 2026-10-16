@@ -243,7 +243,7 @@
             <span id="semaforoConexiones" onclick="dispararAccesoAdmin()" class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block shadow-[0_0_10px_#10b981] cursor-pointer hover:scale-125 transition" title="Haz clic aquí para ingresar como Administrador"></span>
             <div>
                 <h1 class="text-sm font-bold tracking-wide leading-tight">INSTITUTO NACIONAL ELECTORAL</h1>
-                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v1.1)</span></p>
+                <p class="text-[10px] text-slate-400">Registro Federal de Electores — Control CPV <span class="text-amber-400 font-mono ml-1">(v1.2)</span></p>
             </div>
         </div>
         <div class="flex items-center space-x-3 flex-wrap gap-y-1.5">
@@ -276,9 +276,16 @@
 
             <!-- CONTENIDO EXCLUSIVO ADMIN -->
             <div id="adminContentPanel" class="space-y-4 hidden flex-grow overflow-y-auto">
-                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs space-y-1">
-                    <p class="font-bold text-amber-800">👑 Acceso de Administrador Autorizado (Mayito Cárdenas)</p>
-                    <p class="text-slate-600">Tus datos de administrador están protegidos y exentos de límites o borrados automáticos.</p>
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs flex justify-between items-center gap-2">
+                    <div>
+                        <p class="font-bold text-amber-800">👑 Acceso de Administrador (Mayito Cárdenas)</p>
+                        <p class="text-slate-600 text-[11px]">Tus datos están protegidos y exentos de límites.</p>
+                    </div>
+                    <!-- BOTÓN NEGRO CON CALAVERA BIEN VISIBLE ARRIBA EN EL PANEL -->
+                    <button onclick="solicitarBorradoTotal()" class="bg-black hover:bg-slate-800 text-white text-xs font-bold py-2 px-3 rounded shadow transition flex items-center space-x-1.5 flex-shrink-0">
+                        <i class="fas fa-skull text-rose-400"></i>
+                        <span>Reiniciar</span>
+                    </button>
                 </div>
 
                 <div>
@@ -288,13 +295,8 @@
                     </div>
                 </div>
 
-                <div class="pt-2 border-t flex flex-wrap justify-between items-center gap-2">
-                    <!-- BOTÓN NEGRO CON CALAVERA PARA BORRAR BD Y REINICIAR -->
-                    <button onclick="solicitarBorradoTotal()" class="bg-black hover:bg-slate-800 text-white text-xs font-bold py-2 px-4 rounded transition shadow flex items-center space-x-2">
-                        <i class="fas fa-skull text-rose-400"></i>
-                        <span>Reiniciar</span>
-                    </button>
-                    <button onclick="cerrarModalAdmin()" class="bg-slate-800 text-white text-xs font-bold py-2 px-4 rounded">Cerrar Panel</button>
+                <div class="pt-2 border-t text-right">
+                    <button onclick="cerrarModalAdmin()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-5 rounded transition">Cerrar Panel</button>
                 </div>
             </div>
         </div>
@@ -735,26 +737,37 @@
             e.preventDefault();
             const seguro = confirm("⚠️ ¿Estás seguro de regresar al Menú Principal?");
             if (seguro) {
-                liberarSesionDirecto();
+                liberarSesionDirectoMenu();
             }
         }
 
+        // CERRAR SESIÓN: Limpia la sesión actual y regresa al Paso 1 (Configuración Inicial) en lugar de salir al menú principal
         function liberarSesion() {
             if (esAdministradorActivo) {
-                const seguro = confirm('👑 Sesión de Administrador detectada.\n\nTus datos de administrador están protegidos y no se borrarán. ¿Deseas regresar al Menú Principal?');
+                const seguro = confirm('👑 Sesión de Administrador detectada.\n\nTus datos de administrador están protegidos. ¿Deseas cerrar sesión y volver a configurar tus datos/usuario?');
                 if (seguro) {
-                    window.location.href = "https://registro03coah.github.io/mimenu/index.html";
+                    document.getElementById('configSection').classList.remove('hidden');
+                    document.getElementById('workSection').classList.add('hidden');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
                 return;
             }
 
-            const seguro = confirm('⚠️ ¿Estás seguro de cerrar sesión? Tu avance temporal será borrado para dejar el sitio libre.');
+            const seguro = confirm('⚠️ ¿Estás seguro de cerrar sesión? Tu avance temporal será borrado y podrás ingresar un nuevo usuario/configuración.');
             if (seguro) {
-                liberarSesionDirecto();
+                if (window.db && window.firebaseRef && window.firebaseRemove) {
+                    window.firebaseRemove(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}`))
+                        .then(() => {
+                            localStorage.removeItem('sesion_id_operador');
+                            location.reload();
+                        });
+                } else {
+                    location.reload();
+                }
             }
         }
 
-        function liberarSesionDirecto() {
+        function liberarSesionDirectoMenu() {
             if (!esAdministradorActivo && window.db && window.firebaseRef && window.firebaseRemove) {
                 window.firebaseRemove(window.firebaseRef(window.db, `sesiones_activas/${window.sesionId}`))
                     .then(() => {
